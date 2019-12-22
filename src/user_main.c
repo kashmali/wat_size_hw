@@ -12,7 +12,7 @@
 #include "usart.h"
 
 // Application Includes
-#include "ftpc.h"
+//#include "ftpc.h"
 #include "w5500.h"
 
 // User Defines
@@ -84,12 +84,14 @@ void putstr(uint8_t* ptr, uint16_t len)
 
 int main(void)
 {
+  uint8_t data = 0x55;
   init_peripherals();
 
   while(1)
   {
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
     putstr("hello world!\r\n", 14);
+    wiz_send_data(0, &data, 1);
     HAL_Delay(1000);
   }
 

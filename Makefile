@@ -37,12 +37,12 @@ BUILD_DIR = build
 # source
 ######################################
 # C sources
+#w5500/ftpc.c
 C_SOURCES =  \
 src/user_main.c \
 w5500/socket.c \
 w5500/w5500.c \
 w5500/wizchip_conf.c \
-w5500/ftpc.c \
 Core/Src/stm32f0xx_it.c \
 Core/Src/stm32f0xx_hal_msp.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc.c \
