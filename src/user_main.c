@@ -1,17 +1,26 @@
-// Accessor functions
-#include "Drivers/STM32F0xx_HAL_Driver/Inc/stm32f0xx_hal.h"
+// Peripheral Includes
+#include "stm32f0xx_hal.h"
 
-// Contains global peripheral structs
-#include "Core/Inc/main.h"
-#include "Core/Inc/adc.h"
-#include "Core/Inc/dma.h"
-#include "Core/Inc/spi.h"
-#include "Core/Inc/tim.h"
-#include "Core/Inc/usart.h"
-#include "Core/Inc/gpio.h"
+// Peripheral Structures
+#include "adc.h"
+#include "dma.h"
+#include "gpio.h"
+#include "main.h"
+#include "spi.h"
+#include "sys.h"
+#include "tim.h"
+#include "usart.h"
+
+// Application Includes
+#include "ftpc.h"
+#include "w5500.h"
+
+// User Defines
+#define vcp_uart huart2
 
 void user_SystemClockConfig(void);
 void init_peripherals(void);
+void putstr(uint8_t* ptr, uint16_t len);
 
 void user_SystemClockConfig(void)
 {
@@ -54,6 +63,7 @@ void init_peripherals(void)
 {
   HAL_Init();
   user_SystemClockConfig();
+  MX_SYS_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM16_Init();
@@ -65,6 +75,13 @@ void init_peripherals(void)
   MX_USART2_UART_Init();
 }
 
+void putstr(uint8_t* ptr, uint16_t len)
+{
+  // Wait forever to place the characters (don't timeout)
+  HAL_UART_Transmit(&vcp_uart, ptr, len, (uint32_t)-1);
+  return;
+}
+
 int main(void)
 {
   init_peripherals();
@@ -72,6 +89,7 @@ int main(void)
   while(1)
   {
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
+    putstr("hello world!\r\n", 14);
     HAL_Delay(1000);
   }
 

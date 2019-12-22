@@ -68,20 +68,28 @@ void Error_Handler(void);
 #define ENCODER_PHB_GPIO_Port GPIOA
 #define VCP_TX_Pin GPIO_PIN_2
 #define VCP_TX_GPIO_Port GPIOA
-#define V12_SENSE_Pin GPIO_PIN_3
-#define V12_SENSE_GPIO_Port GPIOA
-#define W5500_NSS_Pin GPIO_PIN_4
-#define W5500_NSS_GPIO_Port GPIOA
+#define V16_SENSE_Pin GPIO_PIN_3
+#define V16_SENSE_GPIO_Port GPIOA
+#define W5500_nSS_Pin GPIO_PIN_4
+#define W5500_nSS_GPIO_Port GPIOA
 #define MOTOR_BKIN_Pin GPIO_PIN_6
 #define MOTOR_BKIN_GPIO_Port GPIOA
-#define MOTOR_BL_Pin GPIO_PIN_8
-#define MOTOR_BL_GPIO_Port GPIOA
-#define MOTOR_BR_Pin GPIO_PIN_9
-#define MOTOR_BR_GPIO_Port GPIOA
-#define MOTOR_TL_Pin GPIO_PIN_10
-#define MOTOR_TL_GPIO_Port GPIOA
-#define MOTOR_TR_Pin GPIO_PIN_11
-#define MOTOR_TR_GPIO_Port GPIOA
+#define W5500_nINT_Pin GPIO_PIN_7
+#define W5500_nINT_GPIO_Port GPIOA
+#define W5500_nRST_Pin GPIO_PIN_0
+#define W5500_nRST_GPIO_Port GPIOB
+#define LED_GREEN_Pin GPIO_PIN_1
+#define LED_GREEN_GPIO_Port GPIOB
+#define MOTOR_A_L_Pin GPIO_PIN_8
+#define MOTOR_A_L_GPIO_Port GPIOA
+#define MOTOR_B_L_Pin GPIO_PIN_9
+#define MOTOR_B_L_GPIO_Port GPIOA
+#define MOTOR_A_H_Pin GPIO_PIN_10
+#define MOTOR_A_H_GPIO_Port GPIOA
+#define MOTOR_B_H_Pin GPIO_PIN_11
+#define MOTOR_B_H_GPIO_Port GPIOA
+#define LIDAR_MTRCTL_Pin GPIO_PIN_12
+#define LIDAR_MTRCTL_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
@@ -98,8 +106,6 @@ void Error_Handler(void);
 #define LIDAR_TX_GPIO_Port GPIOB
 #define LIDAR_RX_Pin GPIO_PIN_7
 #define LIDAR_RX_GPIO_Port GPIOB
-#define LIDAR_PWM_Pin GPIO_PIN_8
-#define LIDAR_PWM_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

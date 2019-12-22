@@ -73,12 +73,12 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* spiHandle)
     PB4     ------> SPI1_MISO
     PB5     ------> SPI1_MOSI 
     */
-    GPIO_InitStruct.Pin = W5500_NSS_Pin;
+    GPIO_InitStruct.Pin = W5500_nSS_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF0_SPI1;
-    HAL_GPIO_Init(W5500_NSS_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(W5500_nSS_GPIO_Port, &GPIO_InitStruct);
 
     GPIO_InitStruct.Pin = W5500_SCK_Pin|W5500_MISO_Pin|W5500_MOSI_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -143,7 +143,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
     PB4     ------> SPI1_MISO
     PB5     ------> SPI1_MOSI 
     */
-    HAL_GPIO_DeInit(W5500_NSS_GPIO_Port, W5500_NSS_Pin);
+    HAL_GPIO_DeInit(W5500_nSS_GPIO_Port, W5500_nSS_Pin);
 
     HAL_GPIO_DeInit(GPIOB, W5500_SCK_Pin|W5500_MISO_Pin|W5500_MOSI_Pin);
 
