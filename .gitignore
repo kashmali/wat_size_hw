@@ -1,0 +1,10 @@
+*.a
+*.hex
+*.bin
+*.elf
+*~
+/build/*
+*.gdb_history
+*.mxproject
+*.map
+*.lst
