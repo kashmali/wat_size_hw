@@ -117,7 +117,7 @@ int8_t wizchip_config(void)
   putstr("\r\n", 2);
 
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
-  return -1;//status;
+  return status;
 }
 
 int main(void)

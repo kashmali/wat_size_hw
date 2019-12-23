@@ -121,6 +121,8 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  // TODO(aamali): Change this so that it doesn't hardfault.. but instead reports the location of error, and continues.
+  // Look into potentially using in line assebly to get the frame/stack pointer to create a backtrace!
   HAL_UART_Transmit(&huart2, "aborting\r\n\n", 8, (uint32_t)-1);
   for(;;){}
   /* USER CODE END Error_Handler_Debug */
