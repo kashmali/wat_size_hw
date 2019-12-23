@@ -85,18 +85,58 @@ void putstr(uint8_t* ptr, uint16_t len)
   return;
 }
 
+int8_t wizchip_config(void)
+{
+  int8_t status = 0;
+  wiz_NetInfo conf = {};
+  char name[4];
+  uint8_t ver = 0;
+  char str_ver[2];
+
+  conf.mac[0] = 0xDE;
+  conf.mac[1] = 0xAD;
+  conf.mac[2] = 0xBE;
+  conf.mac[3] = 0xEF;
+  conf.mac[4] = 0xD0;
+  conf.mac[5] = 0x0D;
+  memset(conf.ip, 1, 4);
+  memset(conf.sn, 0xFF, 3);
+  memset(conf.dns, 0x08, 4);
+  conf.dhcp = NETINFO_DHCP;
+
+  status = wizchip_init(NULL, NULL);
+  status = ctlnetwork(CN_SET_NETINFO, (void*)&conf);
+  status = ctlwizchip(CW_GET_ID, name);
+  putstr("[", 1);
+  putstr(name, strlen(name));
+  putstr("] Device Up!\r\n", 14);
+  ver = getVERSIONR();
+  itoa(ver, str_ver, 10);
+  putstr("Version: ", 9);
+  putstr(str_ver, 1);
+  putstr("\r\n", 2);
+
+  //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
+  return -1;//status;
+}
+
 int main(void)
 {
   uint8_t data[5] = {0};
   init_peripherals();
 
-  wizchip_init(NULL, NULL);
+  // Configure the wizchip
+  if(0 != wizchip_config())
+  {
+    Error_Handler();
+  }
+
   memset(data, 0xAA, 5);
 
   while(1)
   {
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-    putstr("hello world!\r\n", 14);
+//    putstr("hello world!\r\n", 14);
     wiz_send_data(0, data, 5);
     HAL_Delay(1000);
   }
