@@ -92,7 +92,7 @@ void       wizchip_cris_exit(void)
 
 void wizchip_cs_select(void)
 {
-  HAL_GPIO_WritePin(W5500_nSS_GPIO_Port, W5500_nSS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(W5500_NSS_GPIO_Port, W5500_NSS_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -103,7 +103,7 @@ void wizchip_cs_select(void)
 //void     wizchip_cs_deselect(void)          {};
 void wizchip_cs_deselect(void)
 {
-  HAL_GPIO_WritePin(W5500_nSS_GPIO_Port, W5500_nSS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(W5500_NSS_GPIO_Port, W5500_NSS_Pin, GPIO_PIN_SET);
 }
 
 /**
@@ -216,21 +216,20 @@ void     wizchip_spi_writeburst(uint8_t* pBuf, uint16_t len)
 //M20150401 : For a compiler didnot support a member of structure
 //            Replace the assignment of struct members with the assingment of array
 //
-/*
 _WIZCHIP  WIZCHIP =
-      {
-      .id                  = _WIZCHIP_ID_,
-      .if_mode             = _WIZCHIP_IO_MODE_,
-      .CRIS._enter         = wizchip_cris_enter,
-      .CRIS._exit          = wizchip_cris_exit,
-      .CS._select          = wizchip_cs_select,
-      .CS._deselect        = wizchip_cs_deselect,
-      .IF.BUS._read_byte   = wizchip_bus_readbyte,
-      .IF.BUS._write_byte  = wizchip_bus_writebyte
-//    .IF.SPI._read_byte   = wizchip_spi_readbyte,
-//    .IF.SPI._write_byte  = wizchip_spi_writebyte
-      };
-*/
+{
+  .id                  = _WIZCHIP_ID_,
+  .if_mode             = _WIZCHIP_IO_MODE_,
+  .CRIS._enter         = wizchip_cris_enter,
+  .CRIS._exit          = wizchip_cris_exit,
+  .CS._select          = wizchip_cs_select,
+  .CS._deselect        = wizchip_cs_deselect,
+  //.IF.BUS._read_byte   = wizchip_bus_readbyte,
+  //.IF.BUS._write_byte  = wizchip_bus_writebyte
+  .IF.SPI._read_byte   = wizchip_spi_readbyte,
+  .IF.SPI._write_byte  = wizchip_spi_writebyte
+};
+/*
 _WIZCHIP  WIZCHIP =
 {
     _WIZCHIP_IO_MODE_,
@@ -248,12 +247,13 @@ _WIZCHIP  WIZCHIP =
             //M20150601 : Rename the function
             //wizchip_bus_readbyte,
             //wizchip_bus_writebyte
-            wizchip_bus_readdata,
-            wizchip_bus_writedata
+            wizchip_spi_readbyte,
+            wizchip_spi_writebyte
         },
 
     }
 };
+*/
 
 
 static uint8_t    _DNS_[4];      // DNS server ip address

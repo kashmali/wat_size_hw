@@ -1,3 +1,6 @@
+// Gloabal Includes
+#include <string.h>
+
 // Peripheral Includes
 #include "stm32f0xx_hal.h"
 
@@ -84,14 +87,17 @@ void putstr(uint8_t* ptr, uint16_t len)
 
 int main(void)
 {
-  uint8_t data = 0x55;
+  uint8_t data[5] = {0};
   init_peripherals();
+
+  wizchip_init(NULL, NULL);
+  memset(data, 0xAA, 5);
 
   while(1)
   {
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
     putstr("hello world!\r\n", 14);
-    wiz_send_data(0, &data, 1);
+    wiz_send_data(0, data, 5);
     HAL_Delay(1000);
   }
 
