@@ -1,5 +1,8 @@
 // Gloabal Includes
 #include <string.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 // Peripheral Includes
 #include "stm32f0xx_hal.h"
@@ -17,13 +20,18 @@
 // Application Includes
 //#include "ftpc.h"
 #include "w5500.h"
+#include "dhcp.h"
 
 // User Defines
 #define vcp_uart huart2
+#define DHCP_SOCKET 0
+#define DNS_SOCKET 1
+#define HTTP_SOCKET 2
+#define putstr(x) _putstr(x, strlen(x))
 
 void user_SystemClockConfig(void);
 void init_peripherals(void);
-void putstr(uint8_t* ptr, uint16_t len);
+void _putstr(uint8_t* ptr, uint16_t len);
 
 void user_SystemClockConfig(void)
 {
@@ -62,6 +70,23 @@ void user_SystemClockConfig(void)
   }
 }
 
+void UART_Printf(const char* fmt, ...) {
+    char buff[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buff, sizeof(buff), fmt, args);
+    HAL_UART_Transmit(&vcp_uart, (uint8_t*)buff, strlen(buff),
+                      HAL_MAX_DELAY);
+    va_end(args);
+}
+
+void _putstr(uint8_t* ptr, uint16_t len)
+{
+  // Wait forever to place the characters (don't timeout)
+  HAL_UART_Transmit(&vcp_uart, ptr, len, HAL_MAX_DELAY);
+  return;
+}
+
 void init_peripherals(void)
 {
   HAL_Init();
@@ -78,43 +103,81 @@ void init_peripherals(void)
   MX_USART2_UART_Init();
 }
 
-void putstr(uint8_t* ptr, uint16_t len)
+// Allocate 1KB for the first 2 sockets
+uint8_t dhcp_buffer[1024];
+uint8_t dns_buffer[1024];
+
+bool ip_assigned = false;
+void cb_ip_assigned(void)
 {
-  // Wait forever to place the characters (don't timeout)
-  HAL_UART_Transmit(&vcp_uart, ptr, len, (uint32_t)-1);
-  return;
+  ip_assigned = true;
+}
+void cb_ip_conflict(void)
+{
+  ip_assigned = false;
 }
 
 int8_t wizchip_config(void)
 {
   int8_t status = 0;
-  wiz_NetInfo conf = {};
   char name[4];
   uint8_t ver = 0;
   char str_ver[2];
+	uint8_t txrx_sizes[] = {2, 2, 2, 2, 2, 2, 2, 2};
+ 	wiz_NetInfo net_info = {
+        .mac  = { 0xDE, 0xAD, 0xFA, 0xCE, 0xD0, 0x0D },
+        .dhcp = NETINFO_DHCP
+  };
 
-  conf.mac[0] = 0xDE;
-  conf.mac[1] = 0xAD;
-  conf.mac[2] = 0xBE;
-  conf.mac[3] = 0xEF;
-  conf.mac[4] = 0xD0;
-  conf.mac[5] = 0x0D;
-  memset(conf.ip, 1, 4);
-  memset(conf.sn, 0xFF, 3);
-  memset(conf.dns, 0x08, 4);
-  conf.dhcp = NETINFO_DHCP;
+	// Clear terminal screen
+	putstr("\033[2J");
 
-  status = wizchip_init(NULL, NULL);
-  status = ctlnetwork(CN_SET_NETINFO, (void*)&conf);
+  status = wizchip_init(txrx_sizes, txrx_sizes);
+	setSHAR(net_info.mac);
+  status = ctlnetwork(CN_SET_NETINFO, (void*)&net_info);
   status = ctlwizchip(CW_GET_ID, name);
-  putstr("[", 1);
-  putstr(name, strlen(name));
-  putstr("] Device Up!\r\n", 14);
+  putstr("[");
+  putstr(name);
+  putstr("] Device Up!\r\n");
   ver = getVERSIONR();
   itoa(ver, str_ver, 10);
-  putstr("Version: ", 9);
-  putstr(str_ver, 1);
-  putstr("\r\n", 2);
+  putstr("Version: ");
+  putstr(str_ver);
+  putstr("\r\n\n");
+
+  putstr("configuring dhcp:\r\n");
+  reg_dhcp_cbfunc(cb_ip_assigned, cb_ip_assigned, cb_ip_conflict);
+  DHCP_init(DHCP_SOCKET, dhcp_buffer);
+
+  for(uint32_t i = 0; (!ip_assigned) && i < 10000; i++)
+  {
+    DHCP_run();
+    if(0 == i % 1000)
+    {
+      putstr(".");
+    }
+  }
+  if(ip_assigned)
+  {
+    putstr("  SUCCESS!\r\n\r\n");
+  }
+  else
+  {
+    putstr(" FAILURE!\r\n");
+    Error_Handler();
+  }
+
+  getIPfromDHCP(net_info.ip);
+  getGWfromDHCP(net_info.gw);
+  getSNfromDHCP(net_info.sn);
+
+	uint8_t dns[4];
+	UART_Printf("IP:  %d.%d.%d.%d\r\nGW:  %d.%d.%d.%d\r\nNet: %d.%d.%d.%d\r\nDNS: %d.%d.%d.%d\r\n",
+        net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3],
+        net_info.gw[0], net_info.gw[1], net_info.gw[2], net_info.gw[3],
+        net_info.sn[0], net_info.sn[1], net_info.sn[2], net_info.sn[3],
+        dns[0], dns[1], dns[2], dns[3]
+  );
 
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;
