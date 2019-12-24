@@ -40,6 +40,18 @@ BUILD_DIR = build
 #w5500/ftpc.c
 C_SOURCES =  \
 src/user_main.c \
+MQTT/MQTTClient.c \
+MQTT/mqtt_interface.c \
+MQTT/MQTTPacket/src/MQTTConnectClient.c \
+MQTT/MQTTPacket/src/MQTTConnectServer.c \
+MQTT/MQTTPacket/src/MQTTDeserializePublish.c \
+MQTT/MQTTPacket/src/MQTTFormat.c \
+MQTT/MQTTPacket/src/MQTTPacket.c \
+MQTT/MQTTPacket/src/MQTTSerializePublish.c \
+MQTT/MQTTPacket/src/MQTTSubscribeClient.c \
+MQTT/MQTTPacket/src/MQTTSubscribeServer.c \
+MQTT/MQTTPacket/src/MQTTUnsubscribeClient.c \
+MQTT/MQTTPacket/src/MQTTUnsubscribeServer.c \
 w5500/socket.c \
 w5500/w5500.c \
 w5500/wizchip_conf.c \
@@ -132,7 +144,9 @@ C_DEFS =  \
 AS_INCLUDES =
 
 # C includes
+#-IMQTT/MQTTPacket/src
 C_INCLUDES =  \
+-IMQTT \
 -Isrc \
 -Iw5500 \
 -ICore/Inc \

@@ -22,13 +22,17 @@
 #include "w5500.h"
 #include "dhcp.h"
 #include "dns.h"
+#include "MQTTClient.h"
 
 // User Defines
 #define vcp_uart huart2
-#define DHCP_SOCKET 0
-#define DNS_SOCKET 1
-#define HTTP_SOCKET 2
 #define putstr(x) _putstr(x, strlen(x))
+enum socket_type_t
+{
+  DHCP_SOCKET = 0,
+  DNS_SOCKET,
+  MQTT_SOCKET,
+};
 
 void user_SystemClockConfig(void);
 void init_peripherals(void);
@@ -72,7 +76,7 @@ void user_SystemClockConfig(void)
 }
 
 void UART_Printf(const char* fmt, ...) {
-    char buff[256];
+    char buff[100];
     va_list args;
     va_start(args, fmt);
     vsnprintf(buff, sizeof(buff), fmt, args);
@@ -105,8 +109,26 @@ void init_peripherals(void)
 }
 
 // Allocate 1KB for the first 2 sockets
-uint8_t dhcp_buffer[1024];
-uint8_t dns_buffer[1024];
+uint8_t dhcp_buffer[500];
+uint8_t dns_buffer[500];
+uint8_t mqtt_ip[] = { 192, 168, 2, 183 };
+#define mqtt_port 1883
+uint8_t mqtt_txbuf[1048];
+uint8_t mqtt_rxbuf[100];
+int32_t rc = 0;
+
+struct opts_struct
+{
+	char* clientid;
+	int nodelimiter;
+	char* delimiter;
+	enum QoS qos;
+	char* username;
+	char* password;
+	char* host;
+	int port;
+	int showtopics;
+} opts ={ (char*)"stdout-subscriber", 0, (char*)"\n", QOS0, NULL, NULL, mqtt_ip, mqtt_port, 0 };
 
 bool ip_assigned = false;
 void cb_ip_assigned(void)
@@ -116,6 +138,25 @@ void cb_ip_assigned(void)
 void cb_ip_conflict(void)
 {
   ip_assigned = false;
+}
+
+// @brief messageArrived callback function
+void messageArrived(MessageData* md)
+{
+	unsigned char testbuffer[50];
+	MQTTMessage* message = md->message;
+
+	if (opts.showtopics)
+	{
+		memcpy(testbuffer,(char*)message->payload,(int)message->payloadlen);
+		*(testbuffer + (int)message->payloadlen + 1) = "\n";
+    UART_Printf("%s\r\n", testbuffer);
+	}
+
+	if (opts.nodelimiter)
+		UART_Printf("%.*s", (int)message->payloadlen, (char*)message->payload);
+	else
+		UART_Printf("%.*s%s", (int)message->payloadlen, (char*)message->payload, opts.delimiter);
 }
 
 int8_t wizchip_config(void)
@@ -197,6 +238,43 @@ int8_t wizchip_config(void)
   }
 
   UART_Printf("IP: %d.%d.%d.%d\r\n", ex_addr[0], ex_addr[1], ex_addr[2], ex_addr[3]);
+
+  UART_Printf("Configuring MQTT session...\r\n");
+
+  Network n;
+  MQTTClient c;
+
+  UART_Printf("Creating MQTT socket\r\n");
+  NewNetwork(&n, MQTT_SOCKET);
+  UART_Printf("Connecting to network\r\n");
+  ConnectNetwork(&n, mqtt_ip, mqtt_port);
+  UART_Printf("MQTTClientInit...\r\n");
+  MQTTClientInit(&c, &n, 1000, mqtt_txbuf, sizeof(mqtt_txbuf), mqtt_rxbuf, sizeof(mqtt_rxbuf));
+
+	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+	data.willFlag = 0;
+	data.MQTTVersion = 3;
+	data.clientID.cstring = opts.clientid;
+	data.username.cstring = opts.username;
+	data.password.cstring = opts.password;
+	data.keepAliveInterval = 60;
+	data.cleansession = 1;
+
+  // Connecting to MQTT instance
+  UART_Printf("attempting to connect...\r\n");
+	rc = MQTTConnect(&c, &data);
+	UART_Printf("Connected %d\r\n", rc);
+	opts.showtopics = 1;
+
+  // Subscribing
+	UART_Printf("Subscribing to %s\r\n", "weather/#");
+	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
+	UART_Printf("Subscribed %d\r\n", rc);
+
+    while(1)
+    {
+    	MQTTYield(&c, data.keepAliveInterval);
+    }
 
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;
