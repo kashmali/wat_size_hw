@@ -21,6 +21,7 @@
 //#include "ftpc.h"
 #include "w5500.h"
 #include "dhcp.h"
+#include "dns.h"
 
 // User Defines
 #define vcp_uart huart2
@@ -167,17 +168,35 @@ int8_t wizchip_config(void)
     Error_Handler();
   }
 
+	uint8_t dns[4];
   getIPfromDHCP(net_info.ip);
   getGWfromDHCP(net_info.gw);
   getSNfromDHCP(net_info.sn);
+  getDNSfromDHCP(dns);
 
-	uint8_t dns[4];
-	UART_Printf("IP:  %d.%d.%d.%d\r\nGW:  %d.%d.%d.%d\r\nNet: %d.%d.%d.%d\r\nDNS: %d.%d.%d.%d\r\n",
+	UART_Printf("IP:  %d.%d.%d.%d\r\nGW:  %d.%d.%d.%d\r\nNet: %d.%d.%d.%d\r\nDNS: %d.%d.%d.%d\r\n\n",
         net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3],
         net_info.gw[0], net_info.gw[1], net_info.gw[2], net_info.gw[3],
         net_info.sn[0], net_info.sn[1], net_info.sn[2], net_info.sn[3],
         dns[0], dns[1], dns[2], dns[3]
   );
+
+  wizchip_setnetinfo(&net_info);
+
+  DNS_init(DNS_SOCKET, dns_buffer);
+
+  uint8_t ex_addr[4];
+  char domain_name[] = "www.example.com";
+  UART_Printf("Resolving the address of: %s\r\n", domain_name);
+
+  int8_t res = DNS_run(dns, domain_name, ex_addr);
+  if(1 != res)
+  {
+    UART_Printf("DNS lookup failed with code: %d\r\n", res);
+    Error_Handler();
+  }
+
+  UART_Printf("IP: %d.%d.%d.%d\r\n", ex_addr[0], ex_addr[1], ex_addr[2], ex_addr[3]);
 
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;

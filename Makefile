@@ -43,7 +43,8 @@ src/user_main.c \
 w5500/socket.c \
 w5500/w5500.c \
 w5500/wizchip_conf.c \
-w5500/dhcp.c \
+wp5500/dhcp.c \
+wp5500/dns.c \
 Core/Src/stm32f0xx_it.c \
 Core/Src/stm32f0xx_hal_msp.c \
 Drivers/STM32F0xx_HAL_Driver/Src/stm32f0xx_hal_adc.c \
