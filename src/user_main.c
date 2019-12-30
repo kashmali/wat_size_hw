@@ -18,11 +18,12 @@
 #include "usart.h"
 
 // Application Includes
-//#include "ftpc.h"
 #include "w5500.h"
 #include "dhcp.h"
 #include "dns.h"
 #include "MQTTClient.h"
+#include "rplidar.h"
+#include "rplidar_msg.h"
 
 // User Defines
 #define vcp_uart huart2
@@ -280,26 +281,118 @@ int8_t wizchip_config(void)
   return status;
 }
 
+typedef enum
+{
+  RP_BOOT_S = 0,
+  RP_RESET_S,
+  RP_SCAN_S,
+  RP_STOP_S,
+  RP_ERROR_S,
+} rp_state_t;
+
+void rp_run(void)
+{
+  static rp_state_t rp_state = RP_BOOT_S;
+  rp_resp_header_t resp;
+  uint8_t status = HAL_OK;
+
+  switch(rp_state)
+  {
+    case RP_BOOT_S:
+    {
+      rp_health_t health = {0};
+      // Request the health of the lidar
+      status = rp_request(RP_GET_HEALTH, &resp);
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
+
+      // TODO:Verify resp is correct
+
+      // Grab the actual message
+      status = rp_get(&health, sizeof(rp_health_t));
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
+
+      if(RP_GOOD == health.status)
+      {
+        UART_Printf("RP OK!\r\n");
+        rp_state = RP_SCAN_S;
+      }
+      else if(RP_WARNING == health.status)
+      {
+        UART_Printf("RP Warning! Continuing...\r\n");
+        rp_state = RP_SCAN_S;
+      }
+      else if(RP_ERROR == health.status)
+      {
+        rp_state = RP_ERROR_S;
+      }
+      else
+      {
+        // Should not reach here
+        rp_state = RP_STOP_S;
+      }
+
+    }
+    break;
+    case RP_RESET_S:
+    {
+      UART_Printf("Resetting...\r\n");
+      (void)rp_request(RP_RESET, NULL);
+
+      // Wait 1 second after sending reset message
+      HAL_Delay(1000);
+      rp_state = RP_BOOT_S;
+    }
+    break;
+    case RP_SCAN_S:
+    {
+      //UART_Printf("doing nothing...\r\n");
+    }
+    break;
+    case RP_STOP_S:
+    {
+      UART_Printf("Stopping...\r\n");
+      (void)rp_request(RP_STOP, NULL);
+    }
+    break;
+    case RP_ERROR_S:
+    {
+      UART_Printf("RP Error!\r\n");
+      rp_state = RP_RESET_S;
+    }
+    break;
+  }
+}
+
 int main(void)
 {
   uint8_t data[5] = {0};
   init_peripherals();
 
-  // Configure the wizchip
-  if(0 != wizchip_config())
-  {
-    Error_Handler();
-  }
-
-  memset(data, 0xAA, 5);
+  //// Configure the wizchip
+  //if(0 != wizchip_config())
+  //{
+  //  Error_Handler();
+  //}
+  //memset(data, 0xAA, 5);
 
   while(1)
   {
+    rp_run();
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-//    putstr("hello world!\r\n", 14);
-    wiz_send_data(0, data, 5);
     HAL_Delay(1000);
+    //wiz_send_data(0, data, 5);
   }
 
   return 0;
 }
+

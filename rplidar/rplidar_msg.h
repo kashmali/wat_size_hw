@@ -12,17 +12,17 @@
 typedef enum
 {
   // No Response
-  STOP = 0x25,
-  RESET = 0x40,
+  RP_STOP = 0x25,
+  RP_RESET = 0x40,
   // Multiple Response
-  SCAN = 0x20,
-  EXPRESSS_SCAN = 0x82,
-  FORCE_SCAN = 0x21,
+  RP_SCAN = 0x20,
+  RP_EXPRESSS_SCAN = 0x82,
+  RP_FORCE_SCAN = 0x21,
   // Single Response
-  GET_INFO = 0x50,
-  GET_HEALTH = 0x52,
-  GET_SAMPLE_RATE = 0x59,
-  GET_LIDAR_CONF = 0x84;
+  RP_GET_INFO = 0x50,
+  RP_GET_HEALTH = 0x52,
+  RP_GET_SAMPLE_RATE = 0x59,
+  RP_GET_LIDAR_CONF = 0x84
 }rp_req_t;
 
 typedef struct
@@ -44,15 +44,10 @@ typedef struct
 
 typedef struct
 {
-  uint8_t quality : 6;
-  uint8_t new_scan : 1;
-  uint8_t nnew_scan : 1;
-  uint8_t angle_l : 7; // q6
-  uint8_t check : 1; // Should always be 1
-  uint8_t angle_h; // q6
-  uint8_t dist_l; // q2
-  uint8_t dist_h; // q2
-} scan_packet_t
+  uint8_t status;
+  uint8_t err_code_l;
+  uint8_t err_code_h;
+} rp_health_t;
 
 typedef struct
 {
@@ -65,8 +60,8 @@ typedef struct
   uint8_t  d_theta2_h : 2;
   uint8_t  dist2_h;
   // Offsets
-  uint8_t  d_theta2_h : 4;
-  uint8_t  d_theta1_h : 4;
+  uint8_t  d_theta2_l : 4;
+  uint8_t  d_theta1_l : 4;
 } cabin_t;
 
 typedef struct
@@ -76,6 +71,20 @@ typedef struct
   uint8_t major;
 } ultra_cabin_t;
 
+// Packet structure for SCAN request
+typedef struct
+{
+  uint8_t quality : 6;
+  uint8_t new_scan : 1;
+  uint8_t nnew_scan : 1;
+  uint8_t angle_l : 7; // q6
+  uint8_t check : 1; // Should always be 1
+  uint8_t angle_h; // q6
+  uint8_t dist_l; // q2
+  uint8_t dist_h; // q2
+} scan_packet_t;
+
+// Packet structure for EXPRESSS_SCAN (legacy)
 typedef struct
 {
   uint8_t sync1 : 4;
@@ -88,6 +97,7 @@ typedef struct
   cabin_t cabin[16];
 } xscan_packet_t;
 
+// Packet structure for EXPRESSS_SCAN
 typedef struct
 {
   uint8_t sync1 : 4;
@@ -98,6 +108,6 @@ typedef struct
   uint8_t new_scan : 1;
   uint8_t start_angle_h : 7;
   ultra_cabin_t ucabin[32];
-} uxscan_packet_t
+} uxscan_packet_t;
 
 #endif
