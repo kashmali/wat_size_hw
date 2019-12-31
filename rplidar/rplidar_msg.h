@@ -37,8 +37,7 @@ typedef struct
 {
   uint8_t sync; // Should be START_FLAG
   uint8_t sync2; // Should be RESP_FLAG
-  uint32_t size : 30;
-  uint32_t mode : 2;
+  uint8_t size[4]; // Last 2 bits are mode
   uint8_t type;
 } rp_resp_header_t;
 
@@ -48,6 +47,15 @@ typedef struct
   uint8_t err_code_l;
   uint8_t err_code_h;
 } rp_health_t;
+
+typedef struct
+{
+  uint8_t model;
+  uint8_t firmware_min;
+  uint8_t firmware_maj;
+  uint8_t hardware;
+  uint8_t serialnum[16];
+} rp_info_t;
 
 typedef struct
 {

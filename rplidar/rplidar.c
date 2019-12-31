@@ -12,22 +12,15 @@ static uint8_t putbuf(uint8_t* ptr, uint16_t len)
 
 static uint8_t get_descriptor(uint8_t *out)
 {
-  uint8_t data[2];
-  do
-  {
-    HAL_UART_Receive(&rp_uart, &data[0], 1, HAL_MAX_DELAY);
-  }
-  while(START_FLAG == data[0]);
+ // uint8_t data[2];
+ // do
+ // {
+ //   HAL_UART_Receive(&rp_uart, &(data[0]), 1, HAL_MAX_DELAY);
+ // }
+ // while(START_FLAG != data[0]);
 
-  HAL_UART_Receive(&rp_uart, &data[1], 1, HAL_MAX_DELAY);
-
-  if(RESP_FLAG == data[1])
-  {
-    out[0] = data[0];
-    out[1] = data[1];
-    return HAL_UART_Receive(&rp_uart, (uint8_t*)&out[2], sizeof(rp_resp_header_t) - 2, HAL_MAX_DELAY);
-  }
-  return HAL_ERROR;
+ // out[0] = data[0];
+  return HAL_UART_Receive(&rp_uart, out, sizeof(rp_resp_header_t), HAL_MAX_DELAY);
 }
 
 static uint8_t checksum(uint8_t *buf, uint8_t size)

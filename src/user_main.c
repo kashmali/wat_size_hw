@@ -27,6 +27,7 @@
 
 // User Defines
 #define vcp_uart huart2
+#define rp_uart huart1
 #define putstr(x) _putstr(x, strlen(x))
 enum socket_type_t
 {
@@ -172,9 +173,6 @@ int8_t wizchip_config(void)
         .dhcp = NETINFO_DHCP
   };
 
-	// Clear terminal screen
-	putstr("\033[2J");
-
   status = wizchip_init(txrx_sizes, txrx_sizes);
 	setSHAR(net_info.mac);
   status = ctlnetwork(CN_SET_NETINFO, (void*)&net_info);
@@ -293,7 +291,8 @@ typedef enum
 void rp_run(void)
 {
   static rp_state_t rp_state = RP_BOOT_S;
-  rp_resp_header_t resp;
+  rp_resp_header_t resp = {0};
+  rp_info_t info = {0};
   uint8_t status = HAL_OK;
 
   switch(rp_state)
@@ -334,19 +333,38 @@ void rp_run(void)
       else if(RP_ERROR == health.status)
       {
         rp_state = RP_ERROR_S;
+        break;
       }
       else
       {
         // Should not reach here
         rp_state = RP_STOP_S;
+        break;
       }
+
+      // Get the device info
+      UART_Printf("Getting device info...");
+      status = rp_get(&info, sizeof(rp_info_t));
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
+      UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
+      UART_Printf("Serial: ");
+      for(uint8_t i = 0; i < 16;i++)
+      {
+        UART_Printf("%02X ", info.serialnum[i]);
+      }
+      UART_Printf("\r\n");
 
     }
     break;
     case RP_RESET_S:
     {
       UART_Printf("Resetting...\r\n");
-      (void)rp_request(RP_RESET, NULL);
+      (void)rp_request(RP_RESET, &resp);
 
       // Wait 1 second after sending reset message
       HAL_Delay(1000);
@@ -355,7 +373,10 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
-      //UART_Printf("doing nothing...\r\n");
+      UART_Printf("Scanning...\r\n");
+      (void)rp_request(RP_SCAN, &resp);
+
+      UART_Printf("type: %d\r\n", resp.type);
     }
     break;
     case RP_STOP_S:
@@ -378,12 +399,17 @@ int main(void)
   uint8_t data[5] = {0};
   init_peripherals();
 
+	// Clear terminal screen
+	putstr("\033[2J");
+
   //// Configure the wizchip
   //if(0 != wizchip_config())
   //{
   //  Error_Handler();
   //}
   //memset(data, 0xAA, 5);
+  //
+  rp_init(rp_uart);
 
   while(1)
   {
