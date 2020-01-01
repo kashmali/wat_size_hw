@@ -22,7 +22,8 @@ typedef enum
   RP_GET_INFO = 0x50,
   RP_GET_HEALTH = 0x52,
   RP_GET_SAMPLE_RATE = 0x59,
-  RP_GET_LIDAR_CONF = 0x84
+  RP_GET_LIDAR_CONF = 0x84,
+  RP_MOTOR_SPEED_CTRL = 0xA8,
 }rp_req_t;
 
 typedef struct

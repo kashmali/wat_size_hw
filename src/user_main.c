@@ -293,6 +293,7 @@ void rp_run(void)
   static rp_state_t rp_state = RP_BOOT_S;
   rp_resp_header_t resp = {0};
   rp_info_t info = {0};
+  scan_packet_t scan = {0};
   uint8_t status = HAL_OK;
 
   switch(rp_state)
@@ -302,23 +303,23 @@ void rp_run(void)
       rp_health_t health = {0};
       // Request the health of the lidar
       status = rp_request(RP_GET_HEALTH, &resp);
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
 
       // TODO:Verify resp is correct
 
       // Grab the actual message
       status = rp_get(&health, sizeof(rp_health_t));
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
 
       if(RP_GOOD == health.status)
       {
@@ -344,13 +345,14 @@ void rp_run(void)
 
       // Get the device info
       UART_Printf("Getting device info...");
+      status = rp_request(RP_GET_INFO, &resp);
       status = rp_get(&info, sizeof(rp_info_t));
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
       UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
       UART_Printf("Serial: ");
       for(uint8_t i = 0; i < 16;i++)
@@ -359,6 +361,8 @@ void rp_run(void)
       }
       UART_Printf("\r\n");
 
+      UART_Printf("Spinning up...\r\n");
+      HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
     }
     break;
     case RP_RESET_S:
@@ -373,10 +377,17 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
+      HAL_Delay(2000);
       UART_Printf("Scanning...\r\n");
       (void)rp_request(RP_SCAN, &resp);
-
-      UART_Printf("type: %d\r\n", resp.type);
+      UART_Printf("dist ; theta\r\n");
+      UART_Printf("____________\r\n");
+      for(;;)
+      {
+        status = rp_get(&scan, sizeof(scan_packet_t));
+        UART_Printf("%d , %d\r\n", ((scan.dist_h << 8) | scan.dist_l)/4, ((scan.angle_h << 7) | scan.angle_l)/64);
+        HAL_Delay(10);
+      }
     }
     break;
     case RP_STOP_S:
@@ -409,7 +420,7 @@ int main(void)
   //}
   //memset(data, 0xAA, 5);
   //
-  rp_init(rp_uart);
+  rp_init(&rp_uart);
 
   while(1)
   {
