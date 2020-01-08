@@ -92,7 +92,7 @@ void       wizchip_cris_exit(void)
 
 void wizchip_cs_select(void)
 {
-  HAL_GPIO_WritePin(W5500_NSS_GPIO_Port, W5500_NSS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(W5500_nSS_GPIO_Port, W5500_nSS_Pin, GPIO_PIN_RESET);
 }
 
 /**
@@ -103,7 +103,7 @@ void wizchip_cs_select(void)
 //void     wizchip_cs_deselect(void)          {};
 void wizchip_cs_deselect(void)
 {
-  HAL_GPIO_WritePin(W5500_NSS_GPIO_Port, W5500_NSS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(W5500_nSS_GPIO_Port, W5500_nSS_Pin, GPIO_PIN_SET);
 }
 
 /**

@@ -59,7 +59,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "stm32f0xx_hal.h"
+#include "stm32l4xx_hal.h"
 #include "spi.h"
 /**
  * @brief Select WIZCHIP.

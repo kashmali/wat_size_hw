@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "rplidar_msg.h"
-#include "stm32f0xx_hal.h"
+#include "stm32l4xx_hal.h"
 
 uint8_t rp_init(UART_HandleTypeDef *uart);
 uint8_t rp_request(rp_req_t cmd, rp_resp_header_t *resp);
