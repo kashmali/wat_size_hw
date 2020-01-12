@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -166,9 +166,9 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
   /* USER CODE BEGIN TIM16_MspPostInit 0 */
 
   /* USER CODE END TIM16_MspPostInit 0 */
-  
-    /**TIM16 GPIO Configuration    
-    PA6     ------> TIM16_CH1 
+
+    /**TIM16 GPIO Configuration
+    PA6     ------> TIM16_CH1
     */
     GPIO_InitStruct.Pin = MOTOR_PWM_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -209,10 +209,29 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
 
   /* USER CODE END TIM16_MspDeInit 1 */
   }
-} 
+}
 
 /* USER CODE BEGIN 1 */
-
+void TIM_initTimers(void)
+{
+// TIM16 Motor Drive 80Mhz clk, 16kHz Frequency 0-5000 = 0-100% DC
+	TIM16->CCR1 = 0;	//
+	HAL_TIM_PWM_Start(&htim16, TIM_CHANNEL_1);
+	TIM15->CCR1 = 0;	//
+	HAL_TIM_PWM_Start(&htim15, TIM_CHANNEL_2);
+}
+void TIM_setSpeed(uint16_t pwmCount)
+{
+	TIM16->CCR1 = pwmCount;
+}
+void TIM_setLidarOn(void)
+{
+	TIM15->CCR1 = 5000;
+}
+void TIM_setLidarOff(void)
+{
+	TIM15->CCR1 = 0;
+}
 /* USER CODE END 1 */
 
 /**

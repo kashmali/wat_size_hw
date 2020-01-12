@@ -11,7 +11,9 @@
 #include "adc.h"
 #include "dma.h"
 #include "gpio.h"
+#include "lptim.h"
 #include "main.h"
+#include "rtc.h"
 #include "spi.h"
 #include "sys.h"
 #include "tim.h"
@@ -24,6 +26,7 @@
 #include "MQTTClient.h"
 #include "rplidar.h"
 #include "rplidar_msg.h"
+#include "turntable.h"
 
 // User Defines
 #define vcp_uart huart2
@@ -138,16 +141,20 @@ void _putstr(uint8_t* ptr, uint16_t len)
 void init_peripherals(void)
 {
   HAL_Init();
+
   user_SystemClockConfig();
-  MX_SYS_Init();
-  MX_TIM15_Init();
-  MX_TIM16_Init();
+
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_SPI1_Init();
+  MX_USART2_UART_Init();
+  MX_TIM16_Init();
+  MX_TIM15_Init();
   MX_ADC1_Init();
   MX_USART1_UART_Init();
-  MX_USART2_UART_Init();
+  MX_SYS_Init();
+  MX_SPI1_Init();
+  MX_RTC_Init();
+  MX_LPTIM1_Init();
 }
 
 // Allocate 1KB for the first 2 sockets
@@ -453,20 +460,28 @@ int main(void)
 	// Clear terminal screen
 	putstr("\033[2J");
 
-  //// Configure the wizchip
+  // Configure the wizchip
   //if(0 != wizchip_config())
   //{
   //  Error_Handler();
   //}
   //memset(data, 0xAA, 5);
-  //
-  rp_init(&rp_uart);
+
+  //rp_init(&rp_uart);
+  tt_state_t tt_s = IDLE_TT;
+  tt_init();
+  tt_fsm(&tt_s);
+  HAL_Delay(2000);
+  tt_s = ROTATE_TT;
+  tt_fsm(&tt_s);
 
   while(1)
   {
-    rp_run();
+    //rp_run();
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
     HAL_Delay(1000);
+    tt_fsm(&tt_s);
+
     //wiz_send_data(0, data, 5);
   }
 

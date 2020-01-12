@@ -41,6 +41,7 @@ BUILD_DIR = build
 C_SOURCES =  \
 src/user_main.c \
 src/fifo.c \
+src/turntable.c \
 MQTT/MQTTClient.c \
 MQTT/mqtt_interface.c \
 MQTT/MQTTPacket/src/MQTTConnectClient.c \

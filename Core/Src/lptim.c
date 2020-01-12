@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -81,10 +81,10 @@ void HAL_LPTIM_MspInit(LPTIM_HandleTypeDef* lptimHandle)
   /* USER CODE END LPTIM1_MspInit 0 */
     /* LPTIM1 clock enable */
     __HAL_RCC_LPTIM1_CLK_ENABLE();
-  
-    /**LPTIM1 GPIO Configuration    
+
+    /**LPTIM1 GPIO Configuration
     PB5     ------> LPTIM1_IN1
-    PB7     ------> LPTIM1_IN2 
+    PB7     ------> LPTIM1_IN2
     */
     GPIO_InitStruct.Pin = ENCODER_PHA_Pin|ENCODER_PHB_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -109,10 +109,10 @@ void HAL_LPTIM_MspDeInit(LPTIM_HandleTypeDef* lptimHandle)
   /* USER CODE END LPTIM1_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_LPTIM1_CLK_DISABLE();
-  
-    /**LPTIM1 GPIO Configuration    
+
+    /**LPTIM1 GPIO Configuration
     PB5     ------> LPTIM1_IN1
-    PB7     ------> LPTIM1_IN2 
+    PB7     ------> LPTIM1_IN2
     */
     HAL_GPIO_DeInit(GPIOB, ENCODER_PHA_Pin|ENCODER_PHB_Pin);
 
@@ -120,10 +120,29 @@ void HAL_LPTIM_MspDeInit(LPTIM_HandleTypeDef* lptimHandle)
 
   /* USER CODE END LPTIM1_MspDeInit 1 */
   }
-} 
+}
 
 /* USER CODE BEGIN 1 */
-
+void LPTIM_initTimers(void)
+{
+// TIM2 Encoder
+	HAL_LPTIM_Encoder_Start(&hlptim1, TIM_CHANNEL_ALL);
+	LPTIM1 -> ARR = 0xFFFF; // AFC8 = 45000 pulses is 1 revolution
+}
+uint16_t LPTIM_getEncCount(void)
+{
+	return (LPTIM1 -> CNT);
+}
+void LPTIM_resetEncCount(void)
+{
+	//LPTIM1 -> CNT = 0;
+		HAL_LPTIM_Encoder_Stop(&hlptim1);
+		HAL_Delay(10);
+		LPTIM1 -> CNT = 0;
+		HAL_Delay(10);
+		HAL_LPTIM_Encoder_Start(&hlptim1, TIM_CHANNEL_ALL);
+		LPTIM1 -> ARR = 0xFFFF; // AFC8 = 45000 pulses is 1 revolution
+}
 /* USER CODE END 1 */
 
 /**

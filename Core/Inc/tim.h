@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -62,11 +62,14 @@ extern void _Error_Handler(char *, int);
 
 void MX_TIM15_Init(void);
 void MX_TIM16_Init(void);
-                        
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                    
-/* USER CODE BEGIN Prototypes */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
+/* USER CODE BEGIN Prototypes */
+void TIM_initTimers(void);
+void TIM_setSpeed(uint16_t pwmCount);
+void TIM_setLidarOn(void);
+void TIM_setLidarOff(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
