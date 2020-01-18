@@ -1,4 +1,5 @@
 // Gloabal Includes
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -160,7 +161,7 @@ void init_peripherals(void)
 // Allocate 1KB for the first 2 sockets
 uint8_t dhcp_buffer[500];
 uint8_t dns_buffer[500];
-uint8_t mqtt_ip[] = { 192, 168, 2, 183 };
+char mqtt_ip[] = { 192, 168, 2, 183 };
 #define mqtt_port 1883
 uint8_t mqtt_txbuf[1048];
 uint8_t mqtt_rxbuf[100];
@@ -198,7 +199,7 @@ void messageArrived(MessageData* md)
 	if (opts.showtopics)
 	{
 		memcpy(testbuffer,(char*)message->payload,(int)message->payloadlen);
-		*(testbuffer + (int)message->payloadlen + 1) = "\n";
+		*(testbuffer + (int)message->payloadlen + 1) = '\n';
     UART_Printf("%s\r\n", testbuffer);
 	}
 
@@ -342,6 +343,7 @@ void rp_run(void)
   rp_info_t info = {0};
   scan_packet_t scan = {0};
   uint8_t status = HAL_OK;
+  uint16_t enc_count = 0;
 
   switch(rp_state)
   {
@@ -424,15 +426,16 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
-      HAL_Delay(2000);
       UART_Printf("Scanning...\r\n");
       (void)rp_request(RP_SCAN, &resp);
       UART_Printf("dist ; theta\r\n");
       UART_Printf("____________\r\n");
+      LPTIM_resetEncCount();
       for(;;)
       {
         status = rp_get(&scan, sizeof(scan_packet_t));
-        UART_Printf("%d , %d\r\n", ((scan.dist_h << 8) | scan.dist_l)/4, ((scan.angle_h << 7) | scan.angle_l)/64);
+        enc_count = LPTIM_getEncCount();
+        UART_Printf("%d , %d, %d\r\n", ((scan.dist_h << 8) | scan.dist_l)/4, ((scan.angle_h << 7) | scan.angle_l)/64, enc_count);
         HAL_Delay(10);
       }
     }
@@ -467,7 +470,7 @@ int main(void)
   //}
   //memset(data, 0xAA, 5);
 
-  //rp_init(&rp_uart);
+  rp_init(&rp_uart);
   tt_state_t tt_s = IDLE_TT;
   tt_init();
   tt_fsm(&tt_s);
@@ -477,10 +480,13 @@ int main(void)
 
   while(1)
   {
-    //rp_run();
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-    HAL_Delay(1000);
-    tt_fsm(&tt_s);
+    rp_run();
+    printf("rp_run encountered an error");
+    //tt.motorPWM = 0;
+    //LPTIM_resetEncCount();
+
+    //tt_fsm(&tt_s); // More advanced turntable motion
 
     //wiz_send_data(0, data, 5);
   }

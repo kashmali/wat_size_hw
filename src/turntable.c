@@ -1,6 +1,8 @@
 #include "turntable.h"
 
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #include "tim.h"
 #include "lptim.h"
@@ -41,14 +43,16 @@ void tt_fsm(tt_state_t *state)
         for(int i = 0; i < 100; i++)
         {
           HAL_Delay(10);
-          turntable_ctrl(i*);
+          tt.motorPWM = turntable_ctrl(i*10);
+          TIM_setSpeed((uint16_t)tt.motorPWM);
         }
         *state = ROTATE_TT;
       }
       break;
     case ROTATE_TT:
       {
-        tt.motorPWM = 4000;
+        //tt.motorPWM = turntable_ctrl(1500);
+        tt.motorPWM = 2000; // Use a constant for now
 				HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
       }
       break;
@@ -83,17 +87,18 @@ int16_t turntable_ctrl(uint32_t mdeg_p_s)
   static uint32_t last_tick = 0;
   static uint32_t last_count = 0;
   static int32_t last_err = 0;
+  static int16_t pwm = 0;
 
   int32_t curr_tick = 0;
   uint32_t curr_count = 0;
   int32_t curr_err = 0;
-  int16_t pwm = 0;
 
   if(init)
   {
     last_count = LPTIM_getEncCount();
     last_tick = HAL_GetTick();
     last_err = 0;
+    pwm = 0;
 
     init = false;
   }

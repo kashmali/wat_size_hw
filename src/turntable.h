@@ -1,6 +1,8 @@
 #ifndef TURNTABLE_H
 #define TURNTABLE_H
 
+#include <stdint.h>
+
 typedef enum
 {
   IDLE_TT = 0,
@@ -13,5 +15,6 @@ typedef enum
 
 void tt_init(void);
 void tt_fsm(tt_state_t *state);
+int16_t turntable_ctrl(uint32_t deg_p_s);
 
 #endif
