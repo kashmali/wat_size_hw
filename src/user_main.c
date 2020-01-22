@@ -161,7 +161,7 @@ void init_peripherals(void)
 // Allocate 1KB for the first 2 sockets
 uint8_t dhcp_buffer[500];
 uint8_t dns_buffer[500];
-char mqtt_ip[] = { 192, 168, 2, 183 };
+uint8_t mqtt_ip[] = { 3, 214, 109, 163 };
 #define mqtt_port 1883
 uint8_t mqtt_txbuf[1048];
 uint8_t mqtt_rxbuf[100];
@@ -314,14 +314,20 @@ int8_t wizchip_config(void)
 	opts.showtopics = 1;
 
   // Subscribing
-	UART_Printf("Subscribing to %s\r\n", "weather/#");
-	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
+	UART_Printf("Subscribing to %s\r\n", "user_info/name");
+	rc = MQTTSubscribe(&c, "user_info/name", opts.qos, messageArrived);
 	UART_Printf("Subscribed %d\r\n", rc);
+  char payload_data[6] = { 'h', 'e', 'l', 'l', 'o', '\n' };
+  MQTTMessage msg = {0};
+  msg.id = 1;
+  msg.payload = payload_data;
+  msg.payloadlen = 6;
 
-    while(1)
-    {
-    	MQTTYield(&c, data.keepAliveInterval);
-    }
+  while(1)
+  {
+  	MQTTYield(&c, data.keepAliveInterval);
+    rc = MQTTPublish(&c, "user_info/raw_data", &msg);
+  }
 
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;
@@ -464,31 +470,20 @@ int main(void)
 	putstr("\033[2J");
 
   // Configure the wizchip
-  //if(0 != wizchip_config())
-  //{
-  //  Error_Handler();
-  //}
-  //memset(data, 0xAA, 5);
+  if(0 != wizchip_config())
+  {
+    Error_Handler();
+  }
+  memset(data, 0xAA, 5);
 
-  rp_init(&rp_uart);
-  tt_state_t tt_s = IDLE_TT;
-  tt_init();
-  tt_fsm(&tt_s);
-  HAL_Delay(2000);
-  tt_s = ROTATE_TT;
-  tt_fsm(&tt_s);
+  //rp_init(&rp_uart);
 
   while(1)
   {
+    //rp_run();
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-    rp_run();
-    printf("rp_run encountered an error");
-    //tt.motorPWM = 0;
-    //LPTIM_resetEncCount();
-
-    //tt_fsm(&tt_s); // More advanced turntable motion
-
-    //wiz_send_data(0, data, 5);
+    HAL_Delay(1000);
+    wiz_send_data(0, data, 5);
   }
 
   return 0;
