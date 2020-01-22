@@ -113,7 +113,7 @@ void init_peripherals(void)
 // Allocate 1KB for the first 2 sockets
 uint8_t dhcp_buffer[500];
 uint8_t dns_buffer[500];
-uint8_t mqtt_ip[] = { 192, 168, 2, 183 };
+uint8_t mqtt_ip[] = { 3, 214, 109, 163 };
 #define mqtt_port 1883
 uint8_t mqtt_txbuf[1048];
 uint8_t mqtt_rxbuf[100];
@@ -266,8 +266,8 @@ int8_t wizchip_config(void)
 	opts.showtopics = 1;
 
   // Subscribing
-	UART_Printf("Subscribing to %s\r\n", "weather/#");
-	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
+	UART_Printf("Subscribing to %s\r\n", "user_info/name");
+	rc = MQTTSubscribe(&c, "user_info/name", opts.qos, messageArrived);
 	UART_Printf("Subscribed %d\r\n", rc);
 
     while(1)
