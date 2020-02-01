@@ -91,7 +91,16 @@ typedef struct
   uint8_t angle_h; // q6
   uint8_t dist_l; // q2
   uint8_t dist_h; // q2
-} scan_packet_t;
+}__attribute__((packed)) scan_packet_t;
+
+// Packet structure for SCAN request
+typedef struct
+{
+  uint16_t angle_z_q14;
+  uint32_t dist_mm_q2;
+  uint8_t  quality;
+  uint8_t  flag;
+}__attribute__((packed)) scan_packet_hq_t;
 
 // Packet structure for EXPRESSS_SCAN (legacy)
 typedef struct

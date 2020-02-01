@@ -73,3 +73,12 @@ uint8_t fifo_pop(fifo_t *f, uint8_t *out)
   return 0;
 }
 
+uint32_t fifo_remaining_space(fifo_t *f)
+{
+  if(f)
+  {
+    return f->max_size - f->size;
+  }
+  return 0;
+}
+

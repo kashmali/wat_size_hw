@@ -5,10 +5,9 @@
 // Acts as lock on driver and global instance of uart driver
 static UART_HandleTypeDef *rp_uart;
 
-#define RP_BUF_SIZE 1000
+#define RP_BUF_SIZE 30000
 static uint8_t _rx_buf[RP_BUF_SIZE];
 static fifo_t rp_recv = {0};
-static uint8_t resv[1];
 
 void rp_recv_it(UART_HandleTypeDef *uart)
 {
@@ -32,7 +31,7 @@ static uint8_t putbuf(uint8_t* ptr, uint16_t len)
   return HAL_UART_Transmit(rp_uart, ptr, len, 100);
 }
 
-static uint8_t get_descriptor(uint8_t *out)
+static uint8_t get_descriptor(rp_resp_header_t *out)
 {
   uint8_t temp = 0;
   while(1 == fifo_peek(&rp_recv, &temp) || (temp != START_FLAG))
@@ -51,7 +50,7 @@ static uint8_t get_descriptor(uint8_t *out)
       HAL_Delay(10);
     }
     (void)fifo_pop(&rp_recv, &temp);
-    out[i] = temp;
+    ((uint8_t *)out)[i] = temp;
   }
 
   // Return the number of bytes copied
@@ -77,15 +76,14 @@ void rp_init(UART_HandleTypeDef *uart)
 {
   rp_uart = uart;
   fifo_init(&rp_recv, _rx_buf, RP_BUF_SIZE);
-  //(void)HAL_UART_Receive_IT(&rp_uart, resv, 1);
   /* Enable the UART Data Register Not Empty interrupt */
   SET_BIT(rp_uart->Instance->CR1, USART_CR1_RXNEIE);
 }
 
-uint8_t rp_get(uint8_t *buf, uint32_t size)
+uint8_t rp_get(void *buf, uint32_t size)
 {
   uint8_t temp = 0;
-  uint8_t i = 0;
+  uint32_t i = 0;
   for(; i < size; i++)
   {
     while(1 == fifo_pop(&rp_recv, &temp))
@@ -93,7 +91,7 @@ uint8_t rp_get(uint8_t *buf, uint32_t size)
       // Wait for data to come in
       HAL_Delay(10);
     }
-    buf[i] = temp;
+    ((uint8_t *)buf)[i] = temp;
   }
 
   // Return the number of bytes copied
@@ -144,7 +142,7 @@ uint8_t rp_request(rp_req_t cmd, rp_resp_header_t *resp)
       break;
     case RP_EXPRESSS_SCAN:
       {
-        uint8_t msg[5];
+        uint8_t msg[9];
         msg[0] = START_FLAG;
         msg[1] = RP_EXPRESSS_SCAN;
         msg[2] = 5;
@@ -196,6 +194,27 @@ uint8_t rp_request(rp_req_t cmd, rp_resp_header_t *resp)
       }
       break;
     case RP_GET_LIDAR_CONF:
+      {
+        uint8_t msg[3];
+        msg[0] = START_FLAG;
+        msg[1] = RP_GET_LIDAR_CONF;
+        msg[2] = 0x7C;
+        msg[3] = checksum(msg, 3);
+        status = putbuf(msg, 4);
+        if(HAL_OK != status)
+        {
+          // ERROR!!
+          break;
+        }
+
+        // Expect a response that fits in the resp header
+        status = get_descriptor(resp);
+        if(HAL_OK != status)
+        {
+          // ERROR!!
+          break;
+        }
+      }
       break;
     case RP_MOTOR_SPEED_CTRL:
         // Send the request

@@ -42,7 +42,7 @@ enum socket_type_t
 
 void user_SystemClockConfig(void);
 void init_peripherals(void);
-void _putstr(uint8_t* ptr, uint16_t len);
+void _putstr(char* ptr, uint16_t len);
 
 void user_SystemClockConfig(void)
 {
@@ -132,10 +132,10 @@ void UART_Printf(const char* fmt, ...) {
     va_end(args);
 }
 
-void _putstr(uint8_t* ptr, uint16_t len)
+void _putstr(char* ptr, uint16_t len)
 {
   // Wait forever to place the characters (don't timeout)
-  HAL_UART_Transmit(&vcp_uart, ptr, len, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&vcp_uart, (uint8_t *)ptr, len, HAL_MAX_DELAY);
   return;
 }
 
@@ -277,7 +277,7 @@ int8_t wizchip_config(void)
   char domain_name[] = "www.example.com";
   UART_Printf("Resolving the address of: %s\r\n", domain_name);
 
-  int8_t res = DNS_run(dns, domain_name, ex_addr);
+  int8_t res = DNS_run(dns, (uint8_t *)domain_name, ex_addr);
   if(1 != res)
   {
     UART_Printf("DNS lookup failed with code: %d\r\n", res);
@@ -294,7 +294,7 @@ int8_t wizchip_config(void)
   UART_Printf("Creating MQTT socket\r\n");
   NewNetwork(&n, MQTT_SOCKET);
   UART_Printf("Connecting to network\r\n");
-  ConnectNetwork(&n, mqtt_ip, mqtt_port);
+  ConnectNetwork(&n, (uint8_t *)mqtt_ip, mqtt_port);
   UART_Printf("MQTTClientInit...\r\n");
   MQTTClientInit(&c, &n, 1000, mqtt_txbuf, sizeof(mqtt_txbuf), mqtt_rxbuf, sizeof(mqtt_rxbuf));
 
@@ -343,7 +343,6 @@ void rp_run(void)
   rp_info_t info = {0};
   scan_packet_t scan = {0};
   uint8_t status = HAL_OK;
-  uint16_t enc_count = 0;
 
   switch(rp_state)
   {
@@ -352,23 +351,23 @@ void rp_run(void)
       rp_health_t health = {0};
       // Request the health of the lidar
       status = rp_request(RP_GET_HEALTH, &resp);
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
 
       // TODO:Verify resp is correct
 
       // Grab the actual message
       status = rp_get(&health, sizeof(rp_health_t));
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
 
       if(RP_GOOD == health.status)
       {
@@ -396,12 +395,12 @@ void rp_run(void)
       UART_Printf("Getting device info...");
       status = rp_request(RP_GET_INFO, &resp);
       status = rp_get(&info, sizeof(rp_info_t));
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
+      if(status == HAL_TIMEOUT)
+      {
+        UART_Printf("Timeout!\r\n");
+        rp_state = RP_STOP_S;
+        break;
+      }
       UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
       UART_Printf("Serial: ");
       for(uint8_t i = 0; i < 16;i++)
@@ -426,17 +425,40 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
+      scan_packet_t temp_buf[128];
       UART_Printf("Scanning...\r\n");
       (void)rp_request(RP_SCAN, &resp);
       UART_Printf("dist ; theta\r\n");
       UART_Printf("____________\r\n");
       LPTIM_resetEncCount();
+      uint16_t temp_dist = 0;
+      uint16_t temp_angle = 0;
+      //uint16_t enc_count = 0;
+      status = rp_get(temp_buf, sizeof(temp_buf));
       for(;;)
       {
         status = rp_get(&scan, sizeof(scan_packet_t));
-        enc_count = LPTIM_getEncCount();
-        UART_Printf("%d , %d, %d\r\n", ((scan.dist_h << 8) | scan.dist_l)/4, ((scan.angle_h << 7) | scan.angle_l)/64, enc_count);
-        HAL_Delay(10);
+        //enc_count = LPTIM_getEncCount();
+        temp_dist = scan.dist_h << 8;
+        temp_dist |= scan.dist_l;
+        temp_angle = scan.angle_h << 7;
+        temp_angle |= scan.angle_l;
+        temp_angle /= 64;
+        if(temp_angle > 360)
+        {
+          temp_angle -= 360;
+        }
+
+        // If the scan packet that came in doesn't have the checkbbits,
+        // read a single byte to try and re-align and try again, which
+        // will take up to sizeof(scan_packet_t) to resolve dropped packet
+        if(scan.new_scan != !scan.nnew_scan)
+        {
+          status = rp_get(&scan, 1);
+          continue;
+        }
+
+        UART_Printf("%d, %d, %d\r\n", temp_dist/4, temp_angle, scan.quality);
       }
     }
     break;
@@ -457,7 +479,6 @@ void rp_run(void)
 
 int main(void)
 {
-  uint8_t data[5] = {0};
   init_peripherals();
 
 	// Clear terminal screen
@@ -468,15 +489,14 @@ int main(void)
   //{
   //  Error_Handler();
   //}
-  //memset(data, 0xAA, 5);
 
   rp_init(&rp_uart);
   tt_state_t tt_s = IDLE_TT;
   tt_init();
   tt_fsm(&tt_s);
   HAL_Delay(2000);
-  tt_s = ROTATE_TT;
-  tt_fsm(&tt_s);
+  //tt_s = ROTATE_TT;
+  //tt_fsm(&tt_s);
 
   while(1)
   {
