@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether
+  * USER CODE END. Other portions of this file, whether 
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -166,9 +166,9 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
   /* USER CODE BEGIN TIM16_MspPostInit 0 */
 
   /* USER CODE END TIM16_MspPostInit 0 */
-
-    /**TIM16 GPIO Configuration
-    PA6     ------> TIM16_CH1
+  
+    /**TIM16 GPIO Configuration    
+    PA6     ------> TIM16_CH1 
     */
     GPIO_InitStruct.Pin = MOTOR_PWM_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -209,7 +209,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
 
   /* USER CODE END TIM16_MspDeInit 1 */
   }
-}
+} 
 
 /* USER CODE BEGIN 1 */
 void TIM_initTimers(void)
