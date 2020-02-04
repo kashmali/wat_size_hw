@@ -351,23 +351,23 @@ void rp_run(void)
       rp_health_t health = {0};
       // Request the health of the lidar
       status = rp_request(RP_GET_HEALTH, &resp);
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
 
       // TODO:Verify resp is correct
 
       // Grab the actual message
       status = rp_get(&health, sizeof(rp_health_t));
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
 
       if(RP_GOOD == health.status)
       {
@@ -395,12 +395,12 @@ void rp_run(void)
       UART_Printf("Getting device info...");
       status = rp_request(RP_GET_INFO, &resp);
       status = rp_get(&info, sizeof(rp_info_t));
-      if(status == HAL_TIMEOUT)
-      {
-        UART_Printf("Timeout!\r\n");
-        rp_state = RP_STOP_S;
-        break;
-      }
+      //if(status == HAL_TIMEOUT)
+      //{
+      //  UART_Printf("Timeout!\r\n");
+      //  rp_state = RP_STOP_S;
+      //  break;
+      //}
       UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
       UART_Printf("Serial: ");
       for(uint8_t i = 0; i < 16;i++)
@@ -411,6 +411,7 @@ void rp_run(void)
 
       UART_Printf("Spinning up...\r\n");
       HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
+      HAL_Delay(1000);
     }
     break;
     case RP_RESET_S:
@@ -430,15 +431,15 @@ void rp_run(void)
       (void)rp_request(RP_SCAN, &resp);
       UART_Printf("dist ; theta\r\n");
       UART_Printf("____________\r\n");
-      LPTIM_resetEncCount();
       uint16_t temp_dist = 0;
       uint16_t temp_angle = 0;
-      //uint16_t enc_count = 0;
+      uint16_t enc_count = 0;
       status = rp_get(temp_buf, sizeof(temp_buf));
-      for(;;)
+      LPTIM_resetEncCount();
+      for(;enc_count < 45000;)
       {
         status = rp_get(&scan, sizeof(scan_packet_t));
-        //enc_count = LPTIM_getEncCount();
+        enc_count = LPTIM_getEncCount();
         temp_dist = scan.dist_h << 8;
         temp_dist |= scan.dist_l;
         temp_angle = scan.angle_h << 7;
@@ -452,13 +453,13 @@ void rp_run(void)
         // If the scan packet that came in doesn't have the checkbbits,
         // read a single byte to try and re-align and try again, which
         // will take up to sizeof(scan_packet_t) to resolve dropped packet
-        if(scan.new_scan != !scan.nnew_scan)
-        {
-          status = rp_get(&scan, 1);
-          continue;
-        }
+        //if(scan.new_scan != !scan.nnew_scan)
+        //{
+        //  status = rp_get(&scan, 1);
+        //  continue;
+        //}
 
-        UART_Printf("%d, %d, %d\r\n", temp_dist/4, temp_angle, scan.quality);
+        UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
       }
     }
     break;
@@ -495,14 +496,21 @@ int main(void)
   tt_init();
   tt_fsm(&tt_s);
   HAL_Delay(2000);
-  //tt_s = ROTATE_TT;
-  //tt_fsm(&tt_s);
+  tt_s = ROTATE_TT;
+  tt_fsm(&tt_s);
+  tt_s = END_ROTATE_TT;
 
   while(1)
   {
     HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
-    rp_run();
-    printf("rp_run encountered an error");
+    for(uint8_t i = 0; i < 2; i++)
+    {
+      rp_run();
+    }
+    tt_fsm(&tt_s);
+    tt_s = END_ROTATE_TT;
+    printf("done!");
+    HAL_Delay(100000);
     //tt.motorPWM = 0;
     //LPTIM_resetEncCount();
 

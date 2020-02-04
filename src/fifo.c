@@ -8,6 +8,9 @@ uint8_t fifo_init(fifo_t *f, uint8_t *buf, uint32_t size)
   f->size = 0;
   f->idx = 0;
   f->start = 1;
+
+  // No error case, return success
+  return 0;
 }
 
 // Push a single element onto the fifo
@@ -70,6 +73,15 @@ uint8_t fifo_pop(fifo_t *f, uint8_t *out)
     // error
     return 1;
   }
+  return 0;
+}
+
+uint32_t fifo_flush(fifo_t *f)
+{
+  f->size = 0;
+  f->idx = 0;
+  f->start = 1;
+
   return 0;
 }
 

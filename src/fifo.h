@@ -16,6 +16,7 @@ uint8_t fifo_init(fifo_t *f, uint8_t *buf, uint32_t size);
 uint8_t fifo_push(fifo_t *f, uint8_t data);
 uint8_t fifo_peek(fifo_t *f, uint8_t *out);
 uint8_t fifo_pop(fifo_t *f, uint8_t *out);
+uint32_t fifo_flush(fifo_t *f);
 uint32_t fifo_remaining_space(fifo_t *f);
 
 #endif
