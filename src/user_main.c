@@ -161,7 +161,7 @@ void init_peripherals(void)
 // Allocate 1KB for the first 2 sockets
 uint8_t dhcp_buffer[500];
 uint8_t dns_buffer[500];
-char mqtt_ip[] = { 192, 168, 2, 183 };
+char mqtt_ip[] = { 3, 214, 109, 163 };
 #define mqtt_port 1883
 uint8_t mqtt_txbuf[1048];
 uint8_t mqtt_rxbuf[100];
@@ -208,6 +208,10 @@ void messageArrived(MessageData* md)
 	else
 		UART_Printf("%.*s%s", (int)message->payloadlen, (char*)message->payload, opts.delimiter);
 }
+
+// TODO(aamali): Pass these into the function
+Network n;
+MQTTClient c;
 
 int8_t wizchip_config(void)
 {
@@ -288,9 +292,6 @@ int8_t wizchip_config(void)
 
   UART_Printf("Configuring MQTT session...\r\n");
 
-  Network n;
-  MQTTClient c;
-
   UART_Printf("Creating MQTT socket\r\n");
   NewNetwork(&n, MQTT_SOCKET);
   UART_Printf("Connecting to network\r\n");
@@ -314,15 +315,15 @@ int8_t wizchip_config(void)
 	opts.showtopics = 1;
 
   // Subscribing
-	UART_Printf("Subscribing to %s\r\n", "weather/#");
-	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
-	UART_Printf("Subscribed %d\r\n", rc);
-
-    while(1)
-    {
-    	MQTTYield(&c, data.keepAliveInterval);
-    }
-
+//	UART_Printf("Subscribing to %s\r\n", "weather/#");
+//	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
+//	UART_Printf("Subscribed %d\r\n", rc);
+//
+//    while(1)
+//    {
+//    	MQTTYield(&c, data.keepAliveInterval);
+//    }
+//
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;
 }
@@ -426,6 +427,12 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
+      uint16_t to_publish[360];
+      MQTTMessage msg = {0};
+      msg.id = 1;
+      msg.payload = to_publish;
+      msg.payloadlen = 6;
+
       scan_packet_t temp_buf[128];
       UART_Printf("Scanning...\r\n");
       (void)rp_request(RP_SCAN, &resp);
@@ -438,16 +445,22 @@ void rp_run(void)
       LPTIM_resetEncCount();
       for(;enc_count < 45000;)
       {
-        status = rp_get(&scan, sizeof(scan_packet_t));
-        enc_count = LPTIM_getEncCount();
-        temp_dist = scan.dist_h << 8;
-        temp_dist |= scan.dist_l;
-        temp_angle = scan.angle_h << 7;
-        temp_angle |= scan.angle_l;
-        temp_angle /= 64;
-        if(temp_angle > 360)
+        for(uint32_t i = 0; i < 360;)
         {
-          temp_angle -= 360;
+          status = rp_get(&scan, sizeof(scan_packet_t));
+          enc_count = LPTIM_getEncCount();
+          temp_dist = scan.dist_h << 8;
+          temp_dist |= scan.dist_l;
+          temp_angle = scan.angle_h << 7;
+          temp_angle |= scan.angle_l;
+          temp_angle /= 64;
+          if(temp_angle > 360)
+          {
+            temp_angle -= 360;
+          }
+          to_publish[i++] = temp_dist;
+          to_publish[i++] = temp_angle;
+          to_publish[i++] = enc_count;
         }
 
         // If the scan packet that came in doesn't have the checkbbits,
@@ -459,7 +472,8 @@ void rp_run(void)
         //  continue;
         //}
 
-        UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
+        rc = MQTTPublish(&c, "user_info/raw_data", &msg);
+        //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
       }
     }
     break;
@@ -486,10 +500,10 @@ int main(void)
 	putstr("\033[2J");
 
   // Configure the wizchip
-  //if(0 != wizchip_config())
-  //{
-  //  Error_Handler();
-  //}
+  if(0 != wizchip_config())
+  {
+    Error_Handler();
+  }
 
   rp_init(&rp_uart);
   tt_state_t tt_s = IDLE_TT;
