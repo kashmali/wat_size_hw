@@ -242,22 +242,25 @@ int8_t wizchip_config(void)
   reg_dhcp_cbfunc(cb_ip_assigned, cb_ip_assigned, cb_ip_conflict);
   DHCP_init(DHCP_SOCKET, dhcp_buffer);
 
-  for(uint32_t i = 0; (!ip_assigned) && i < 10000; i++)
+  for(int j = 0; (!ip_assigned) && j < 100; j++)
   {
-    DHCP_run();
-    if(0 == i % 1000)
+    for(uint32_t i = 0; (!ip_assigned) && i < 10000; i++)
     {
-      putstr(".");
+      DHCP_run();
+      if(0 == i % 1000)
+      {
+        putstr(".");
+      }
     }
-  }
-  if(ip_assigned)
-  {
-    putstr("  SUCCESS!\r\n\r\n");
-  }
-  else
-  {
-    putstr(" FAILURE!\r\n");
-    Error_Handler();
+    if(ip_assigned)
+    {
+      putstr("  SUCCESS!\r\n\r\n");
+    }
+    else
+    {
+      putstr(" FAILURE!\r\n");
+      //Error_Handler();
+    }
   }
 
 	uint8_t dns[4];
