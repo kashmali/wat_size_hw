@@ -53,7 +53,6 @@ void tt_fsm(tt_state_t *state)
       {
         //tt.motorPWM = turntable_ctrl(1500);
         tt.motorPWM = 2000; // Use a constant for now
-				HAL_GPIO_WritePin(LED_RED_GPIO_Port, LED_RED_Pin, GPIO_PIN_SET);
       }
       break;
     case END_ROTATE_TT:

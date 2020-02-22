@@ -156,6 +156,9 @@ void init_peripherals(void)
   MX_SPI1_Init();
   MX_RTC_Init();
   MX_LPTIM1_Init();
+
+  // Disable the camera to start
+  HAL_GPIO_WritePin(ARDUCAM_nSS_GPIO_Port, ARDUCAM_nSS_Pin, GPIO_PIN_SET);
 }
 
 // Allocate 1KB for the first 2 sockets
@@ -516,7 +519,6 @@ int main(void)
 
   while(1)
   {
-    HAL_GPIO_TogglePin(LED_RED_GPIO_Port, LED_RED_Pin);
     for(uint8_t i = 0; i < 2; i++)
     {
       rp_run();

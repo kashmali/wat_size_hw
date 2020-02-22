@@ -91,8 +91,8 @@
 #define SW_MOM_GPIO_Port GPIOB
 #define ENCODER_PHA_Pin GPIO_PIN_5
 #define ENCODER_PHA_GPIO_Port GPIOB
-#define LED_RED_Pin GPIO_PIN_6
-#define LED_RED_GPIO_Port GPIOB
+#define ARDUCAM_nSS_Pin GPIO_PIN_6
+#define ARDUCAM_nSS_GPIO_Port GPIOB
 #define ENCODER_PHB_Pin GPIO_PIN_7
 #define ENCODER_PHB_GPIO_Port GPIOB
 
