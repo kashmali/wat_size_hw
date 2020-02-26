@@ -166,8 +166,8 @@ uint8_t dhcp_buffer[500];
 uint8_t dns_buffer[500];
 char mqtt_ip[] = { 3, 214, 109, 163 };
 #define mqtt_port 1883
-uint8_t mqtt_txbuf[1048];
-uint8_t mqtt_rxbuf[100];
+uint8_t mqtt_txbuf[2048];
+uint8_t mqtt_rxbuf[200];
 int32_t rc = 0;
 
 struct opts_struct
@@ -313,9 +313,10 @@ int8_t wizchip_config(void)
 
   // Connecting to MQTT instance
   UART_Printf("attempting to connect...\r\n");
+  //rc = MQTTDisconnect(&c);
 	rc = MQTTConnect(&c, &data);
 	UART_Printf("Connected %d\r\n", rc);
-	opts.showtopics = 1;
+	//opts.showtopics = 1;
 
   // Subscribing
 //	UART_Printf("Subscribing to %s\r\n", "weather/#");
@@ -445,13 +446,14 @@ void rp_run(void)
       uint16_t temp_angle = 0;
       uint16_t enc_count = 0;
       status = rp_get(temp_buf, sizeof(temp_buf));
+      HAL_Delay(1000);
       LPTIM_resetEncCount();
-      for(;enc_count < 45000;)
+      for(int j = 0;enc_count < 45000;j++)
       {
         for(uint32_t i = 0; i < 360;)
         {
           status = rp_get(&scan, sizeof(scan_packet_t));
-          enc_count = LPTIM_getEncCount();
+          //enc_count = LPTIM_getEncCount();
           temp_dist = scan.dist_h << 8;
           temp_dist |= scan.dist_l;
           temp_angle = scan.angle_h << 7;
@@ -464,6 +466,7 @@ void rp_run(void)
           to_publish[i++] = temp_dist;
           to_publish[i++] = temp_angle;
           to_publish[i++] = enc_count;
+          //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
         }
 
         // If the scan packet that came in doesn't have the checkbbits,
@@ -476,7 +479,7 @@ void rp_run(void)
         //}
 
         rc = MQTTPublish(&c, "user_info/raw_data", &msg);
-        //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
+        UART_Printf("sent %d\r\n", j);
       }
     }
     break;
