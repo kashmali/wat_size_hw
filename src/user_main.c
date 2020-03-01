@@ -21,6 +21,7 @@
 #include "usart.h"
 
 // Application Includes
+#include "arducam.h"
 #include "w5500.h"
 #include "dhcp.h"
 #include "dns.h"
@@ -313,7 +314,7 @@ int8_t wizchip_config(void)
 
   // Connecting to MQTT instance
   UART_Printf("attempting to connect...\r\n");
-  //rc = MQTTDisconnect(&c);
+  // rc = MQTTDisconnect(&c);
 	rc = MQTTConnect(&c, &data);
 	UART_Printf("Connected %d\r\n", rc);
 	//opts.showtopics = 1;
@@ -330,6 +331,31 @@ int8_t wizchip_config(void)
 //
   //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
   return status;
+}
+
+void arducam_config(void)
+{
+  uint8_t ver = 0;
+  arducam_init(&ver);
+
+  UART_Printf("ARDUCAM_VERSION...\r\n");
+  UART_Printf("maj:%d min:%d\r\n", (ver & CAM_VER_MAJ_MASK) >> 4, (ver & CAM_VER_MIN_MASK));
+  UART_Printf("RAW:%x\r\n", ver);
+
+  UART_Printf("Testing writing and reading\r\n");
+  uint8_t in = 0xAA;
+  UART_Printf("Writing to test register: %x\r\n", in);
+  arducam_send(0x80, &in);
+  in = 0xCC;
+  arducam_send(0x81, &in);
+  HAL_Delay(100);
+  uint8_t out = 0;
+  arducam_read(0x0, NULL, &out, 1);
+  UART_Printf("Read: %x\r\n", out);
+  out = 0;
+  arducam_read(0x1, NULL, &out, 1);
+  UART_Printf("Read: %x\r\n", out);
+  while(1);
 }
 
 typedef enum
@@ -435,7 +461,7 @@ void rp_run(void)
       MQTTMessage msg = {0};
       msg.id = 1;
       msg.payload = to_publish;
-      msg.payloadlen = 6;
+      msg.payloadlen = sizeof(to_publish);
 
       scan_packet_t temp_buf[128];
       UART_Printf("Scanning...\r\n");
@@ -506,10 +532,12 @@ int main(void)
 	putstr("\033[2J");
 
   // Configure the wizchip
-  if(0 != wizchip_config())
-  {
-    Error_Handler();
-  }
+  //if(0 != wizchip_config())
+  //{
+  //  Error_Handler();
+  //}
+
+  arducam_config();
 
   rp_init(&rp_uart);
   tt_state_t tt_s = IDLE_TT;

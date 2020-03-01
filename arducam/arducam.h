@@ -6,8 +6,11 @@
 
 // Register defines for ARDUCAM
 
+// Write Flag (1 << 7)
+#define CAM_WR_FLAG 0x81
+
 // Test register
-#define CAM_TEST_REG 0x0
+#define CAM_TEST_REG 0x00
 
 // Capture control register Bit[2:0] # of frames to be captured
 #define CAM_CC_REG 0x01
@@ -65,12 +68,12 @@
 #define CAM_RO_SINGLE_FIFO_REG 0x3D
 
 // Arduchip version (should be 0x40)
-#define CAM_VERSION_REG 0x40
+#define CAM_VER_REG 0x40
   // Version response masks
   // Major
-  #define CAM_VERSION_MAJ_MASK 0xF0
+  #define CAM_VER_MAJ_MASK 0xF0
   // Minor
-  #define CAM_VERSION_MIN_MASK 0x0F
+  #define CAM_VER_MIN_MASK 0x0F
 
 // Camera write FIFO size Resp: [7:0]
 #define CAM_FIFO_SIZE_0_REG 0x42
@@ -89,5 +92,10 @@
   //#define CAM_GPIO_PWE_DWN (1 << 1)
   //// Sensor Power Enable IO Value
   //#define CAM_GPIO_PWE_UP (1 << 2)
+
+// Public Function Declarations
+void arducam_init(uint8_t* version);
+void arducam_read(uint8_t reg, uint8_t *opts, uint8_t *rxbuf, uint32_t len);
+void arducam_send(uint8_t reg, uint8_t *opts);
 
 #endif
