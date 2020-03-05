@@ -20,7 +20,7 @@ void arducam_init(uint8_t* version)
   }
 
   // Grab the version number
-  arducam_read(CAM_VER_REG, NULL, version, sizeof(version));
+  arducam_read(CAM_VER_REG, NULL, version, sizeof(*version));
 }
 
 void arducam_send(uint8_t reg, uint8_t *opts)
@@ -83,10 +83,10 @@ void arducam_read(uint8_t reg, uint8_t *opts, uint8_t *rxbuf, uint32_t len)
   // Disable the chip
   HAL_GPIO_WritePin(ARDUCAM_nSS_GPIO_Port, ARDUCAM_nSS_Pin, GPIO_PIN_SET);
 
-  for(uint32_t i = 0; i < len; i++)
-  {
-    rxbuf[i] = rev_byte(rxbuf[i]);
-  }
+  //for(uint32_t i = 0; i < len; i++)
+  //{
+  //  rxbuf[i] = rev_byte(rxbuf[i]);
+  //}
 }
 
 //void arducam_deinit(void)

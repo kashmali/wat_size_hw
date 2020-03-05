@@ -335,6 +335,12 @@ int8_t wizchip_config(void)
 
 void arducam_config(void)
 {
+  uint8_t reset = 0x01;
+  arducam_send(CAM_TEST_REG | CAM_WR_FLAG, &reset);
+  HAL_Delay(100);
+  arducam_send(CAM_TEST_REG, NULL);
+  HAL_Delay(100);
+
   uint8_t ver = 0;
   arducam_init(&ver);
 
@@ -343,18 +349,56 @@ void arducam_config(void)
   UART_Printf("RAW:%x\r\n", ver);
 
   UART_Printf("Testing writing and reading\r\n");
-  uint8_t in = 0xAA;
+  uint8_t in = 0x00;
   UART_Printf("Writing to test register: %x\r\n", in);
-  arducam_send(0x80, &in);
+  arducam_send(CAM_CC_REG | CAM_WR_FLAG, &in);
   in = 0xCC;
-  arducam_send(0x81, &in);
+  // arducam_send(0x81, &in);
   HAL_Delay(100);
   uint8_t out = 0;
-  arducam_read(0x0, NULL, &out, 1);
+  arducam_read(CAM_CC_REG, NULL, &out, 1);
   UART_Printf("Read: %x\r\n", out);
+  HAL_Delay(100);
+
+  UART_Printf("Starting capture...\r\n");
+  in = CAM_FIFO_START_CAP;// | CAM_FIFO_CL_W_FLAG | CAM_FIFO_RE_R_FLAG;
+  arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
+
+  UART_Printf("Waiting for write complete...\r\n");
   out = 0;
-  arducam_read(0x1, NULL, &out, 1);
-  UART_Printf("Read: %x\r\n", out);
+  arducam_read(CAM_WRITE_DONE_REG, NULL, &out, 1);
+  while(!(out & CAM_WRITE_DONE_MASK))
+  {
+    HAL_Delay(10);
+    UART_Printf("trying...\r\n");
+    arducam_read(CAM_WRITE_DONE_REG, NULL, &out, 1);
+  }
+
+  UART_Printf("DONE capture, checking number of bytes!\r\n");
+
+  // 202752 352x288*2
+  // 30720 240x64*2
+  // 1200*1600*2
+  for(uint32_t i = 0; i < 10; i++)
+  {
+    arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &out, 1);
+    UART_Printf("%x,", out);
+  }
+
+  //arducam_read(CAM_FIFO_SIZE_0_REG, NULL, &out, 1);
+  //UART_Printf("first reg: %x\r\n", out);
+  //arducam_read(CAM_FIFO_SIZE_1_REG, NULL, &out, 1);
+  //UART_Printf("2nd reg: %x\r\n", out);
+  //arducam_read(CAM_FIFO_SIZE_2_REG, NULL, &out, 1);
+  //UART_Printf("3rd reg: %x\r\n", out);
+
+  //for(uint32_t i = 0; i < 100; i++)
+  //{
+
+  //}
+  in = CAM_FIFO_CL_W_FLAG | CAM_FIFO_RE_R_FLAG;
+  arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
+
   while(1);
 }
 

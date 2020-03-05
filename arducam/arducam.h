@@ -37,9 +37,7 @@
   // Start Capture
   #define CAM_FIFO_START_CAP (1 << 1)
   // Reset FIFO write pointer
-  #define CAM_FIFO_RE_W_FLAG (1 << 4)
-  // Reset FIFO read pointer
-  #define CAM_FIFO_RE_R_FLAG (1 << 5)
+  #define CAM_FIFO_RE_R_FLAG (1 << 4)
 
 // GPIO Direction register
 #define CAM_GPIO_DIR_REG 0x05
@@ -61,6 +59,11 @@
   // Sensor Power Enable IO Value
   #define CAM_GPIO_PWE_UP (1 << 2)
 
+// Reset OV chip
+#define CAM_RESET_CPLD_REG 0x07
+  // Reset OV Chip Options
+  #define CAM_RESET_CPLD_FLAG (1 << 7)
+
 // Burst FIFO read Operation
 #define CAM_RO_BURST_FIFO_REG 0x3C
 
@@ -74,6 +77,10 @@
   #define CAM_VER_MAJ_MASK 0xF0
   // Minor
   #define CAM_VER_MIN_MASK 0x0F
+
+#define CAM_WRITE_DONE_REG 0x41
+  // Write done register values
+  #define CAM_WRITE_DONE_MASK (1 << 3)
 
 // Camera write FIFO size Resp: [7:0]
 #define CAM_FIFO_SIZE_0_REG 0x42
