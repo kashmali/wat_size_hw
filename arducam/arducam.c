@@ -56,6 +56,7 @@ void arducam_read(uint8_t reg, uint8_t *opts, uint8_t *rxbuf, uint32_t len)
 {
   uint8_t txlen = 0;
   uint8_t txbuf[2];
+  uint8_t _rxbuf[2];
 
   // Add the register of interest to the msg
   txbuf[0] = reg;
@@ -75,10 +76,12 @@ void arducam_read(uint8_t reg, uint8_t *opts, uint8_t *rxbuf, uint32_t len)
   HAL_GPIO_WritePin(ARDUCAM_nSS_GPIO_Port, ARDUCAM_nSS_Pin, GPIO_PIN_RESET);
 
   // Transmit message (1 byte)
-  (void)HAL_SPI_Transmit(&hspi1, txbuf, txlen, (uint32_t)-1);
+  (void)HAL_SPI_TransmitReceive(&hspi1, txbuf, _rxbuf, txlen, (uint32_t)-1);
 
   // Receive message (1 byte)
-  (void)HAL_SPI_Receive(&hspi1, rxbuf, len, (uint32_t)-1);
+  txbuf[0] = 0x0;
+  txbuf[1] = 0x0;
+  (void)HAL_SPI_TransmitReceive(&hspi1, txbuf, rxbuf, len, (uint32_t)-1);
 
   // Disable the chip
   HAL_GPIO_WritePin(ARDUCAM_nSS_GPIO_Port, ARDUCAM_nSS_Pin, GPIO_PIN_SET);

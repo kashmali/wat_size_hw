@@ -7,7 +7,7 @@
 // Register defines for ARDUCAM
 
 // Write Flag (1 << 7)
-#define CAM_WR_FLAG 0x81
+#define CAM_WR_FLAG 0x80
 
 // Test register
 #define CAM_TEST_REG 0x00

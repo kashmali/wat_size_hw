@@ -160,6 +160,7 @@ void init_peripherals(void)
 
   // Disable the camera to start
   HAL_GPIO_WritePin(ARDUCAM_nSS_GPIO_Port, ARDUCAM_nSS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(W5500_nSS_GPIO_Port, W5500_nSS_Pin, GPIO_PIN_SET);
 }
 
 // Allocate 1KB for the first 2 sockets
@@ -335,37 +336,46 @@ int8_t wizchip_config(void)
 
 void arducam_config(void)
 {
-  uint8_t reset = 0x01;
-  arducam_send(CAM_TEST_REG | CAM_WR_FLAG, &reset);
+  HAL_Delay(1000);
+  uint8_t test = 0x55;
+  arducam_send(CAM_TEST_REG | CAM_WR_FLAG, &test);
   HAL_Delay(100);
-  arducam_send(CAM_TEST_REG, NULL);
+  test = 0;
+  arducam_read(CAM_TEST_REG, NULL, &test, sizeof(test));
   HAL_Delay(100);
+  UART_Printf("Wrote: 0x55, Read: 0x%x\r\n", test);
+
+  HAL_Delay(3000);
 
   uint8_t ver = 0;
   arducam_init(&ver);
-
+  while(!((7 == (ver >> 4)) && 3 == (ver & CAM_VER_MIN_MASK)))
+  {
+    arducam_init(&ver);
+  }
   UART_Printf("ARDUCAM_VERSION...\r\n");
-  UART_Printf("maj:%d min:%d\r\n", (ver & CAM_VER_MAJ_MASK) >> 4, (ver & CAM_VER_MIN_MASK));
-  UART_Printf("RAW:%x\r\n", ver);
+  UART_Printf("maj:%d min:%d\r\n", (ver >> 4), (ver & CAM_VER_MIN_MASK));
+  UART_Printf("RAW:0x%x\r\n", ver);
+}
 
-  UART_Printf("Testing writing and reading\r\n");
-  uint8_t in = 0x00;
-  UART_Printf("Writing to test register: %x\r\n", in);
-  arducam_send(CAM_CC_REG | CAM_WR_FLAG, &in);
-  in = 0xCC;
-  // arducam_send(0x81, &in);
-  HAL_Delay(100);
-  uint8_t out = 0;
-  arducam_read(CAM_CC_REG, NULL, &out, 1);
-  UART_Printf("Read: %x\r\n", out);
-  HAL_Delay(100);
+void arducam_capture_send(void)
+{
+  UART_Printf("Clear fifo flag...\r\n");
+  uint8_t in = CAM_FIFO_CL_W_FLAG;
+  arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
+  in = CAM_FIFO_CL_W_FLAG;
+  arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
+  in = CAM_SIT_FIFO_MODE_CTRL(1);
+  arducam_send(CAM_SIT_REG | CAM_WR_FLAG, &in);
+
+  uint8_t num_frames = 0;
+  arducam_send(CAM_CC_REG | CAM_WR_FLAG, &num_frames);
 
   UART_Printf("Starting capture...\r\n");
-  in = CAM_FIFO_START_CAP;// | CAM_FIFO_CL_W_FLAG | CAM_FIFO_RE_R_FLAG;
+  in = CAM_FIFO_START_CAP;
   arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
 
-  UART_Printf("Waiting for write complete...\r\n");
-  out = 0;
+  uint8_t out = 0;
   arducam_read(CAM_WRITE_DONE_REG, NULL, &out, 1);
   while(!(out & CAM_WRITE_DONE_MASK))
   {
@@ -374,32 +384,65 @@ void arducam_config(void)
     arducam_read(CAM_WRITE_DONE_REG, NULL, &out, 1);
   }
 
-  UART_Printf("DONE capture, checking number of bytes!\r\n");
+  HAL_Delay(100);
 
-  // 202752 352x288*2
-  // 30720 240x64*2
-  // 1200*1600*2
-  for(uint32_t i = 0; i < 10; i++)
+  uint8_t len1, len2, len3;
+  arducam_read(CAM_FIFO_SIZE_0_REG, NULL, &len1, 1);
+  UART_Printf("first reg: %x\r\n", len1);
+  HAL_Delay(100);
+  arducam_read(CAM_FIFO_SIZE_1_REG, NULL, &len2, 1);
+  UART_Printf("2nd reg: %x\r\n", len2);
+  HAL_Delay(100);
+  arducam_read(CAM_FIFO_SIZE_2_REG, NULL, &len3, 1);
+  UART_Printf("3rd reg: %x\r\n", len3);
+  HAL_Delay(100);
+  uint32_t total_length = len1 + (len2 << 8) + (len3 << 16);
+
+#define MAX_FIFO_SIZE 0x5FFFF
+
+  UART_Printf("Total length to read: %d\r\n", total_length);
+  if(total_length > MAX_FIFO_SIZE)
   {
-    arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &out, 1);
-    UART_Printf("%x,", out);
+    UART_Printf("RESULTANT IMAGE TOO BIG!\r\n");
   }
 
-  //arducam_read(CAM_FIFO_SIZE_0_REG, NULL, &out, 1);
-  //UART_Printf("first reg: %x\r\n", out);
-  //arducam_read(CAM_FIFO_SIZE_1_REG, NULL, &out, 1);
-  //UART_Printf("2nd reg: %x\r\n", out);
-  //arducam_read(CAM_FIFO_SIZE_2_REG, NULL, &out, 1);
-  //UART_Printf("3rd reg: %x\r\n", out);
+  uint8_t txbuf[256];
+  MQTTMessage msg = {0};
+  msg.id = 1;
+  msg.payload = txbuf;
+  msg.payloadlen = sizeof(txbuf);
+  for(uint32_t j = 0; j < total_length/sizeof(txbuf); j++)
+  {
+    for(uint32_t i = 0; i < sizeof(txbuf); i++)
+    {
+      arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &txbuf[i], 1);
+      //UART_Printf("%x,", txbuf[i]);
+    }
+    rc = MQTTPublish(&c, "camera/raw_data", &msg);
+  }
 
-  //for(uint32_t i = 0; i < 100; i++)
-  //{
+  uint8_t leftover_buf[256];
+  for(uint32_t j = 0; j < total_length % sizeof(txbuf); j++)
+  {
+    arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &leftover_buf[j], 1);
+    UART_Printf("%x,", leftover_buf[j]);
+  }
 
-  //}
-  in = CAM_FIFO_CL_W_FLAG | CAM_FIFO_RE_R_FLAG;
-  arducam_send(CAM_FIFO_CTRL_REG | CAM_WR_FLAG, &in);
+  MQTTMessage leftover = {0};
+  msg.id = 1;
+  msg.payload = leftover_buf;
+  msg.payloadlen = total_length % sizeof(txbuf);
+  rc = MQTTPublish(&c, "camera/raw_data", &leftover);
 
-  while(1);
+  UART_Printf("\r\nsending leftovers\r\n");
+
+  uint8_t empty[1] = {0};
+  MQTTMessage finished = {0};
+  msg.id = 1;
+  msg.payload = empty;
+  msg.payloadlen = sizeof(empty);
+  rc = MQTTPublish(&c, "camera/camera_status/capture_complete", &finished);
+  UART_Printf("\r\ndone transmition\r\n");
 }
 
 typedef enum
@@ -424,26 +467,13 @@ void rp_run(void)
     case RP_BOOT_S:
     {
       rp_health_t health = {0};
+
+      UART_Printf("got here!");
       // Request the health of the lidar
       status = rp_request(RP_GET_HEALTH, &resp);
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
-
-      // TODO:Verify resp is correct
-
+      UART_Printf("got here2");
       // Grab the actual message
       status = rp_get(&health, sizeof(rp_health_t));
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
-
       if(RP_GOOD == health.status)
       {
         UART_Printf("RP OK!\r\n");
@@ -470,12 +500,7 @@ void rp_run(void)
       UART_Printf("Getting device info...");
       status = rp_request(RP_GET_INFO, &resp);
       status = rp_get(&info, sizeof(rp_info_t));
-      //if(status == HAL_TIMEOUT)
-      //{
-      //  UART_Printf("Timeout!\r\n");
-      //  rp_state = RP_STOP_S;
-      //  break;
-      //}
+
       UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
       UART_Printf("Serial: ");
       for(uint8_t i = 0; i < 16;i++)
@@ -523,7 +548,7 @@ void rp_run(void)
         for(uint32_t i = 0; i < 360;)
         {
           status = rp_get(&scan, sizeof(scan_packet_t));
-          //enc_count = LPTIM_getEncCount();
+          //enc_count = LPTIM_getEncCount(); // TODO(aamali): ENABLE ME
           temp_dist = scan.dist_h << 8;
           temp_dist |= scan.dist_l;
           temp_angle = scan.angle_h << 7;
@@ -539,18 +564,15 @@ void rp_run(void)
           //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
         }
 
-        // If the scan packet that came in doesn't have the checkbbits,
-        // read a single byte to try and re-align and try again, which
-        // will take up to sizeof(scan_packet_t) to resolve dropped packet
-        //if(scan.new_scan != !scan.nnew_scan)
-        //{
-        //  status = rp_get(&scan, 1);
-        //  continue;
-        //}
-
-        rc = MQTTPublish(&c, "user_info/raw_data", &msg);
+        rc = MQTTPublish(&c, "lidar/raw_data", &msg);
         UART_Printf("sent %d\r\n", j);
       }
+      uint8_t empty[1] = {0};
+      MQTTMessage finished = {0};
+      msg.id = 1;
+      msg.payload = empty;
+      msg.payloadlen = sizeof(empty);
+      rc = MQTTPublish(&c, "lidar/lidar_status/scan_complete", &finished);
     }
     break;
     case RP_STOP_S:
@@ -576,14 +598,15 @@ int main(void)
 	putstr("\033[2J");
 
   // Configure the wizchip
-  //if(0 != wizchip_config())
-  //{
-  //  Error_Handler();
-  //}
-
-  arducam_config();
+  if(0 != wizchip_config())
+  {
+    Error_Handler();
+  }
 
   rp_init(&rp_uart);
+  arducam_config();
+  arducam_capture_send();
+
   tt_state_t tt_s = IDLE_TT;
   tt_init();
   tt_fsm(&tt_s);

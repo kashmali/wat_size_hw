@@ -169,7 +169,7 @@ void w5x00_disconnect(Network* n)
  */
 void ConnectNetwork(Network* n, uint8_t* ip, uint16_t port)
 {
-	uint16_t myport = 12345;
+	uint16_t myport = 21247;
 
 	socket(n->my_socket,Sn_MR_TCP,myport,0);
 	connect(n->my_socket,ip,port);
