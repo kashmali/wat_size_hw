@@ -3,10 +3,14 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include "tim.h"
 #include "lptim.h"
 #include "gpio.h"
+#include "usart.h"
 
 typedef struct
 {
@@ -25,6 +29,18 @@ void tt_init(void)
   memset(&tt, 0, sizeof(tt));
 }
 
+#if 0
+static void UART_Printf(const char* fmt, ...) {
+    char buff[100];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buff, sizeof(buff), fmt, args);
+    HAL_UART_Transmit(&huart2, (uint8_t*)buff, strlen(buff),
+                      HAL_MAX_DELAY);
+    va_end(args);
+}
+#endif
+
 void tt_fsm(tt_state_t *state)
 {
 
@@ -38,12 +54,12 @@ void tt_fsm(tt_state_t *state)
       break;
     case START_ROTATE_TT:
       {
-        tt.motorPWM = 4000;
+        //tt.motorPWM = 4000;
         // Start the system up gradually...
-        for(int i = 0; i < 100; i++)
+        for(int i = 0; i < 250; i++)
         {
           HAL_Delay(10);
-          tt.motorPWM = turntable_ctrl(i*10);
+          tt.motorPWM = i*10;
           TIM_setSpeed((uint16_t)tt.motorPWM);
         }
         *state = ROTATE_TT;
@@ -52,11 +68,18 @@ void tt_fsm(tt_state_t *state)
     case ROTATE_TT:
       {
         //tt.motorPWM = turntable_ctrl(1500);
-        tt.motorPWM = 2000; // Use a constant for now
+        tt.motorPWM = 2500; // Use a constant for now
       }
       break;
     case END_ROTATE_TT:
       {
+        for(int i = 0; i < 250; i++)
+        {
+          HAL_Delay(10);
+          tt.motorPWM = 2500 - (i*10);
+          TIM_setSpeed((uint16_t)tt.motorPWM);
+        }
+        *state = IDLE_TT;
         // Spin the system down gradually...
         tt.motorPWM = 0;
       }
@@ -72,15 +95,16 @@ void tt_fsm(tt_state_t *state)
   TIM_setSpeed((uint16_t)tt.motorPWM);
 }
 
+#if 0
 // mdeg_p_s milli degrees per second the loop should attain
 // @ 45000 counts per revolution, each count is 8mdeg
 int16_t turntable_ctrl(uint32_t mdeg_p_s)
 {
 
 // Gains for the control loop
-#define PROP_GAIN 1
+#define PROP_GAIN 110
 #define INT_GAIN 0
-#define DERI_GAIN 0
+#define DERI_GAIN 110
 
   static bool init = true;
   static uint32_t last_tick = 0;
@@ -107,10 +131,16 @@ int16_t turntable_ctrl(uint32_t mdeg_p_s)
   curr_count = LPTIM_getEncCount();
 
   // determine the error in the rate
-  curr_err = (((curr_count - last_count)*8*1000)/(curr_tick - last_tick)) - mdeg_p_s;
+	int32_t rate = (((curr_count - last_count)*8*1000)/(curr_tick - last_tick));
+  curr_err = rate - mdeg_p_s;
+
+	UART_Printf("rate: %d\r\n", rate);
+	UART_Printf("curr err: %d\r\n", curr_err);
 
   // Determine the new PWM to apply
-  pwm += PROP_GAIN * curr_err;
+  curr_err *= -1;
+
+  pwm += curr_err * (PROP_GAIN + INT_GAIN + DERI_GAIN)/100;
 
   // Saturate the output if out of bounds
   if(pwm > 5000)
@@ -129,3 +159,4 @@ int16_t turntable_ctrl(uint32_t mdeg_p_s)
 
   return pwm;
 }
+#endif

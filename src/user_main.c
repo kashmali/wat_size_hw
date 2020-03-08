@@ -158,6 +158,7 @@ void init_peripherals(void)
   MX_SYS_Init();
   MX_SPI1_Init();
   MX_RTC_Init();
+  MX_RNG_Init();
   MX_LPTIM1_Init();
 
   // Disable the camera to start
@@ -197,8 +198,9 @@ void cb_ip_conflict(void)
   ip_assigned = false;
 }
 
+bool mqtt_start_scan = false;
 // @brief messageArrived callback function
-void messageArrived(MessageData* md)
+void lidar_messageArrived(MessageData* md)
 {
 	unsigned char testbuffer[50];
 	MQTTMessage* message = md->message;
@@ -214,11 +216,34 @@ void messageArrived(MessageData* md)
 		UART_Printf("%.*s", (int)message->payloadlen, (char*)message->payload);
 	else
 		UART_Printf("%.*s%s", (int)message->payloadlen, (char*)message->payload, opts.delimiter);
+
+  mqtt_start_scan = true;
 }
+
+//void camera_messageArrived(MessageData* md)
+//{
+//	unsigned char testbuffer[50];
+//	MQTTMessage* message = md->message;
+//
+//	if (opts.showtopics)
+//	{
+//		memcpy(testbuffer,(char*)message->payload,(int)message->payloadlen);
+//		*(testbuffer + (int)message->payloadlen + 1) = '\n';
+//    UART_Printf("%s\r\n", testbuffer);
+//	}
+//
+//	if (opts.nodelimiter)
+//		UART_Printf("%.*s", (int)message->payloadlen, (char*)message->payload);
+//	else
+//		UART_Printf("%.*s%s", (int)message->payloadlen, (char*)message->payload, opts.delimiter);
+//
+//  mqtt_start_scan = true;
+//}
 
 // TODO(aamali): Pass these into the function
 Network n;
 MQTTClient c;
+MQTTPacket_connectData data;
 
 int8_t wizchip_config(void)
 {
@@ -302,11 +327,16 @@ int8_t wizchip_config(void)
   UART_Printf("Creating MQTT socket\r\n");
   NewNetwork(&n, MQTT_SOCKET);
   UART_Printf("Connecting to network\r\n");
-  ConnectNetwork(&n, (uint8_t *)mqtt_ip, mqtt_port);
+
+  uint32_t myport = (uint32_t)-1;
+  HAL_RNG_GenerateRandomNumber(&hrng, &myport);
+  ConnectNetwork(&n, (uint8_t *)mqtt_ip, mqtt_port, (uint16_t)(myport & 0x0000FFFF));
+  UART_Printf("Rng: %d\r\n", (uint16_t)(myport & 0x0000FFFF));
+
   UART_Printf("MQTTClientInit...\r\n");
   MQTTClientInit(&c, &n, 1000, mqtt_txbuf, sizeof(mqtt_txbuf), mqtt_rxbuf, sizeof(mqtt_rxbuf));
 
-	MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+	data = (MQTTPacket_connectData)MQTTPacket_connectData_initializer;
 	data.willFlag = 0;
 	data.MQTTVersion = 3;
 	data.clientID.cstring = opts.clientid;
@@ -317,22 +347,14 @@ int8_t wizchip_config(void)
 
   // Connecting to MQTT instance
   UART_Printf("attempting to connect...\r\n");
-  // rc = MQTTDisconnect(&c);
 	rc = MQTTConnect(&c, &data);
 	UART_Printf("Connected %d\r\n", rc);
-	//opts.showtopics = 1;
 
   // Subscribing
-//	UART_Printf("Subscribing to %s\r\n", "weather/#");
-//	rc = MQTTSubscribe(&c, "weather/", opts.qos, messageArrived);
-//	UART_Printf("Subscribed %d\r\n", rc);
-//
-//    while(1)
-//    {
-//    	MQTTYield(&c, data.keepAliveInterval);
-//    }
-//
-  //ctlnetwork(CN_SET_NETMODE, 0); // Default value already exists
+	UART_Printf("Subscribing to %s\r\n", "lidar_lidar_status/scan");
+	rc = MQTTSubscribe(&c, "lidar/lidar_status/scan", opts.qos, lidar_messageArrived);
+	//rc = MQTTSubscribe(&c, "camera/camera_status/capture", opts.qos, camera_messageArrived);
+	UART_Printf("Subscribed %d\r\n", rc);
   return status;
 }
 
@@ -347,7 +369,7 @@ void arducam_config(void)
   HAL_Delay(100);
   UART_Printf("Wrote: 0x55, Read: 0x%x\r\n", test);
 
-  HAL_Delay(3000);
+  HAL_Delay(1000);
 
   uint8_t ver = 0;
   arducam_init(&ver);
@@ -418,9 +440,9 @@ void arducam_capture_send(void)
     for(uint32_t i = 0; i < sizeof(txbuf); i++)
     {
       arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &txbuf[i], 1);
-      UART_Printf("%x,", txbuf[i]);
+      //UART_Printf("%x,", txbuf[i]);
     }
-    //rc = MQTTPublish(&c, "camera/raw_data", &msg);
+    rc = MQTTPublish(&c, "camera/raw_data", &msg);
   }
 
   uint8_t leftover_buf[256];
@@ -429,8 +451,6 @@ void arducam_capture_send(void)
     arducam_read(CAM_RO_SINGLE_FIFO_REG, NULL, &leftover_buf[j], 1);
     UART_Printf("%x,", leftover_buf[j]);
   }
-
-  while(1);
 
   MQTTMessage leftover = {0};
   msg.id = 1;
@@ -453,6 +473,7 @@ typedef enum
 {
   RP_BOOT_S = 0,
   RP_RESET_S,
+  RP_IDLE_S,
   RP_SCAN_S,
   RP_STOP_S,
   RP_ERROR_S,
@@ -464,29 +485,25 @@ void rp_run(void)
   rp_resp_header_t resp = {0};
   rp_info_t info = {0};
   scan_packet_t scan = {0};
-  uint8_t status = HAL_OK;
 
   switch(rp_state)
   {
     case RP_BOOT_S:
     {
       rp_health_t health = {0};
-
-      UART_Printf("got here!");
       // Request the health of the lidar
-      status = rp_request(RP_GET_HEALTH, &resp);
-      UART_Printf("got here2");
+      (void)rp_request(RP_GET_HEALTH, &resp);
       // Grab the actual message
-      status = rp_get(&health, sizeof(rp_health_t));
+      (void)rp_get(&health, sizeof(rp_health_t));
       if(RP_GOOD == health.status)
       {
         UART_Printf("RP OK!\r\n");
-        rp_state = RP_SCAN_S;
+        rp_state = RP_IDLE_S;
       }
       else if(RP_WARNING == health.status)
       {
         UART_Printf("RP Warning! Continuing...\r\n");
-        rp_state = RP_SCAN_S;
+        rp_state = RP_IDLE_S;
       }
       else if(RP_ERROR == health.status)
       {
@@ -502,8 +519,8 @@ void rp_run(void)
 
       // Get the device info
       UART_Printf("Getting device info...");
-      status = rp_request(RP_GET_INFO, &resp);
-      status = rp_get(&info, sizeof(rp_info_t));
+      (void)rp_request(RP_GET_INFO, &resp);
+      (void)rp_get(&info, sizeof(rp_info_t));
 
       UART_Printf("model: %d\r\nFW min: %d\r\nFW maj: %d\r\nHW: %d\r\n", info.model, info.firmware_min, info.firmware_maj, info.hardware);
       UART_Printf("Serial: ");
@@ -515,7 +532,19 @@ void rp_run(void)
 
       UART_Printf("Spinning up...\r\n");
       HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
-      HAL_Delay(1000);
+      HAL_Delay(500);
+    }
+    break;
+    case RP_IDLE_S:
+    {
+      UART_Printf("Waiting for message from server...\r\n");
+      while(!mqtt_start_scan)
+      {
+    	  MQTTYield(&c, data.keepAliveInterval);
+        HAL_Delay(500);
+      }
+      mqtt_start_scan = false; // TODO(aamali):Change this (when multiple devices)
+      rp_state = RP_SCAN_S;
     }
     break;
     case RP_RESET_S:
@@ -530,6 +559,9 @@ void rp_run(void)
     break;
     case RP_SCAN_S:
     {
+      // Take a picture and send it to the server
+      arducam_capture_send();
+
       uint16_t to_publish[360];
       MQTTMessage msg = {0};
       msg.id = 1;
@@ -539,20 +571,26 @@ void rp_run(void)
       scan_packet_t temp_buf[128];
       UART_Printf("Scanning...\r\n");
       (void)rp_request(RP_SCAN, &resp);
-      UART_Printf("dist ; theta\r\n");
-      UART_Printf("____________\r\n");
+      //UART_Printf("dist ; theta\r\n");
+      //UART_Printf("____________\r\n");
       uint16_t temp_dist = 0;
       uint16_t temp_angle = 0;
       uint16_t enc_count = 0;
-      status = rp_get(temp_buf, sizeof(temp_buf));
-      HAL_Delay(1000);
+      (void)rp_get(temp_buf, sizeof(temp_buf));
+
+      tt_state_t tt_s = START_ROTATE_TT;
+      tt_fsm(&tt_s);
+
+      HAL_Delay(10);
+      tt_s = ROTATE_TT;
+      tt_fsm(&tt_s);
       LPTIM_resetEncCount();
       for(int j = 0;enc_count < 45000;j++)
       {
         for(uint32_t i = 0; i < 360;)
         {
-          status = rp_get(&scan, sizeof(scan_packet_t));
-          //enc_count = LPTIM_getEncCount(); // TODO(aamali): ENABLE ME
+          (void)rp_get(&scan, sizeof(scan_packet_t));
+          enc_count = LPTIM_getEncCount();
           temp_dist = scan.dist_h << 8;
           temp_dist |= scan.dist_l;
           temp_angle = scan.angle_h << 7;
@@ -567,22 +605,33 @@ void rp_run(void)
           to_publish[i++] = enc_count;
           //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
         }
-
+        tt_fsm(&tt_s);
         rc = MQTTPublish(&c, "lidar/raw_data", &msg);
         UART_Printf("sent %d\r\n", j);
       }
+
+      tt_s = END_ROTATE_TT;
+      tt_fsm(&tt_s);
+
       uint8_t empty[1] = {0};
       MQTTMessage finished = {0};
       msg.id = 1;
       msg.payload = empty;
       msg.payloadlen = sizeof(empty);
       rc = MQTTPublish(&c, "lidar/lidar_status/scan_complete", &finished);
+
+      // Go to the stopped state
+      rp_state = RP_STOP_S;
     }
     break;
     case RP_STOP_S:
     {
       UART_Printf("Stopping...\r\n");
+      // Stop the lidar from spinning
+      HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_RESET);
       (void)rp_request(RP_STOP, NULL);
+      // Go back to top of loop
+      rp_state = RP_BOOT_S;
     }
     break;
     case RP_ERROR_S:
@@ -607,35 +656,22 @@ int main(void)
     Error_Handler();
   }
 
-  //rp_init(&rp_uart);
+  rp_init(&rp_uart);
   arducam_config();
-  arducam_capture_send();
 
-  tt_state_t tt_s = IDLE_TT;
   tt_init();
+  tt_state_t tt_s = IDLE_TT;
   tt_fsm(&tt_s);
-  HAL_Delay(2000);
-  tt_s = ROTATE_TT;
-  tt_fsm(&tt_s);
-  tt_s = END_ROTATE_TT;
 
   while(1)
   {
-    for(uint8_t i = 0; i < 2; i++)
-    {
-      rp_run();
-    }
-    tt_fsm(&tt_s);
-    tt_s = END_ROTATE_TT;
-    printf("done!");
-    HAL_Delay(100000);
-    //tt.motorPWM = 0;
-    //LPTIM_resetEncCount();
-
-    //tt_fsm(&tt_s); // More advanced turntable motion
-
-    //wiz_send_data(0, data, 5);
+    rp_run();
+    HAL_Delay(10);
   }
+
+  // Should never reach here
+  tt_s = END_ROTATE_TT;
+  tt_fsm(&tt_s); // More advanced turntable motion
 
   return 0;
 }

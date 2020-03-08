@@ -167,10 +167,8 @@ void w5x00_disconnect(Network* n)
  *         ip : server iP.
  *         port : server port.
  */
-void ConnectNetwork(Network* n, uint8_t* ip, uint16_t port)
+void ConnectNetwork(Network* n, uint8_t* ip, uint16_t port, uint16_t myport)
 {
-	uint16_t myport = 21247;
-
 	socket(n->my_socket,Sn_MR_TCP,myport,0);
 	connect(n->my_socket,ip,port);
 }
