@@ -342,7 +342,7 @@ int8_t wizchip_config(void)
 	data.clientID.cstring = opts.clientid;
 	data.username.cstring = opts.username;
 	data.password.cstring = opts.password;
-	data.keepAliveInterval = 60;
+	data.keepAliveInterval = 999;
 	data.cleansession = 1;
 
   // Connecting to MQTT instance
@@ -352,8 +352,7 @@ int8_t wizchip_config(void)
 
   // Subscribing
 	UART_Printf("Subscribing to %s\r\n", "lidar_lidar_status/scan");
-	rc = MQTTSubscribe(&c, "lidar/lidar_status/scan", opts.qos, lidar_messageArrived);
-	//rc = MQTTSubscribe(&c, "camera/camera_status/capture", opts.qos, camera_messageArrived);
+	rc = MQTTSubscribe(&c, "start_scan_and_capture/", opts.qos, lidar_messageArrived);
 	UART_Printf("Subscribed %d\r\n", rc);
   return status;
 }
@@ -479,6 +478,7 @@ typedef enum
   RP_ERROR_S,
 } rp_state_t;
 
+uint16_t to_publish[360];
 void rp_run(void)
 {
   static rp_state_t rp_state = RP_BOOT_S;
@@ -490,6 +490,7 @@ void rp_run(void)
   {
     case RP_BOOT_S:
     {
+      SET_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
       rp_health_t health = {0};
       // Request the health of the lidar
       (void)rp_request(RP_GET_HEALTH, &resp);
@@ -530,9 +531,6 @@ void rp_run(void)
       }
       UART_Printf("\r\n");
 
-      UART_Printf("Spinning up...\r\n");
-      HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
-      HAL_Delay(500);
     }
     break;
     case RP_IDLE_S:
@@ -541,7 +539,7 @@ void rp_run(void)
       while(!mqtt_start_scan)
       {
     	  MQTTYield(&c, data.keepAliveInterval);
-        HAL_Delay(500);
+        HAL_Delay(10);
       }
       mqtt_start_scan = false; // TODO(aamali):Change this (when multiple devices)
       rp_state = RP_SCAN_S;
@@ -560,9 +558,13 @@ void rp_run(void)
     case RP_SCAN_S:
     {
       // Take a picture and send it to the server
+      UART_Printf("Taking a picture... SMILE >:)\r\n");
       arducam_capture_send();
+      HAL_Delay(1000);
 
-      uint16_t to_publish[360];
+      UART_Printf("Spinning up...\r\n");
+      HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
+
       MQTTMessage msg = {0};
       msg.id = 1;
       msg.payload = to_publish;
@@ -609,6 +611,9 @@ void rp_run(void)
         rc = MQTTPublish(&c, "lidar/raw_data", &msg);
         UART_Printf("sent %d\r\n", j);
       }
+      CLEAR_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
+      HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_RESET);
+      //rp_init(&rp_uart);
 
       tt_s = END_ROTATE_TT;
       tt_fsm(&tt_s);
@@ -629,8 +634,15 @@ void rp_run(void)
       UART_Printf("Stopping...\r\n");
       // Stop the lidar from spinning
       HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_RESET);
-      (void)rp_request(RP_STOP, NULL);
-      // Go back to top of loop
+      // request a stop
+
+      for(int i = 0; i < 200; i++)
+      {
+        HAL_Delay(2);
+        (void)rp_request(RP_STOP, &resp);
+      }
+      rp_clear();
+      MX_USART1_UART_Init();
       rp_state = RP_BOOT_S;
     }
     break;

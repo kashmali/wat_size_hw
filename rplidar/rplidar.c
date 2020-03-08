@@ -5,7 +5,7 @@
 // Acts as lock on driver and global instance of uart driver
 static UART_HandleTypeDef *rp_uart;
 
-#define RP_BUF_SIZE 30000
+#define RP_BUF_SIZE 3000
 static uint8_t _rx_buf[RP_BUF_SIZE];
 static fifo_t rp_recv = {0};
 
@@ -22,6 +22,7 @@ void rp_recv_it(UART_HandleTypeDef *uart)
     fifo_push(&rp_recv, data);
     isrflags = (isrflags & ~USART_ISR_RXNE);
   }
+  isrflags = 0;
 
 }
 
@@ -70,6 +71,11 @@ static uint8_t checksum(uint8_t *buf, uint8_t size)
     out ^= buf[i];
   }
   return out;
+}
+
+void rp_clear()
+{
+  fifo_init(&rp_recv, _rx_buf, RP_BUF_SIZE);
 }
 
 void rp_init(UART_HandleTypeDef *uart)
