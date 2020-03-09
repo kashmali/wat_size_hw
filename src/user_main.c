@@ -478,7 +478,6 @@ typedef enum
   RP_ERROR_S,
 } rp_state_t;
 
-uint16_t to_publish[360];
 void rp_run(void)
 {
   static rp_state_t rp_state = RP_BOOT_S;
@@ -490,7 +489,7 @@ void rp_run(void)
   {
     case RP_BOOT_S:
     {
-      SET_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
+      //SET_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
       rp_health_t health = {0};
       // Request the health of the lidar
       (void)rp_request(RP_GET_HEALTH, &resp);
@@ -565,6 +564,7 @@ void rp_run(void)
       UART_Printf("Spinning up...\r\n");
       HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_SET);
 
+      uint16_t to_publish[360];
       MQTTMessage msg = {0};
       msg.id = 1;
       msg.payload = to_publish;
@@ -605,13 +605,14 @@ void rp_run(void)
           to_publish[i++] = temp_dist;
           to_publish[i++] = temp_angle;
           to_publish[i++] = enc_count;
-          //UART_Printf("%d, %d, %d\n", temp_dist/4, temp_angle, enc_count);
+          UART_Printf("%d, %d, %d\n", to_publish[i-3]/4, to_publish[i-2], to_publish[i-1]);
+          //HAL_Delay(1);
         }
-        tt_fsm(&tt_s);
         rc = MQTTPublish(&c, "lidar/raw_data", &msg);
+        tt_fsm(&tt_s);
         UART_Printf("sent %d\r\n", j);
       }
-      CLEAR_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
+      //CLEAR_BIT(rp_uart.Instance->CR1, USART_CR1_RXNEIE);
       HAL_GPIO_WritePin(LIDAR_MTRCTL_GPIO_Port, LIDAR_MTRCTL_Pin, GPIO_PIN_RESET);
       //rp_init(&rp_uart);
 

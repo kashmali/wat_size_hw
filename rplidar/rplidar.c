@@ -5,7 +5,7 @@
 // Acts as lock on driver and global instance of uart driver
 static UART_HandleTypeDef *rp_uart;
 
-#define RP_BUF_SIZE 3000
+#define RP_BUF_SIZE 30000
 static uint8_t _rx_buf[RP_BUF_SIZE];
 static fifo_t rp_recv = {0};
 
@@ -22,8 +22,6 @@ void rp_recv_it(UART_HandleTypeDef *uart)
     fifo_push(&rp_recv, data);
     isrflags = (isrflags & ~USART_ISR_RXNE);
   }
-  isrflags = 0;
-
 }
 
 static uint8_t putbuf(uint8_t* ptr, uint16_t len)
@@ -95,7 +93,6 @@ uint8_t rp_get(void *buf, uint32_t size)
     while(1 == fifo_pop(&rp_recv, &temp))
     {
       // Wait for data to come in
-      HAL_Delay(10);
     }
     ((uint8_t *)buf)[i] = temp;
   }
